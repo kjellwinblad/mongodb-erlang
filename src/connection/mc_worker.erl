@@ -5,6 +5,7 @@
 
 -define(WRITE(Req), is_record(Req, insert); is_record(Req, update); is_record(Req, delete)).
 -define(READ(Req), is_record(Request, 'query'); is_record(Request, getmore)).
+-define(OP_MSG(Req), is_record(Request, 'op_msg')).
 
 -export([start_link/1, disconnect/1, hibernate/1]).
 -export([
@@ -77,9 +78,12 @@ handle_call(#ensure_index{collection = Coll, index_spec = IndexSpec}, _, State) 
       ConnState#conn_state.database,
       #insert{collection = mc_worker_logic:update_dbcoll(Coll, <<"system.indexes">>), documents = [Index]}),
   {reply, ok, State};
+handle_call(Request, From, State) when ?OP_MSG(Request) ->  % MongoDB 6 MsgOp request 
+  process_op_msg_request(Request, From, State);
 handle_call(Request, From, State) when ?WRITE(Request) ->  % write requests (deprecated)
   process_write_request(Request, From, State);
 handle_call(Request, From, State) when ?READ(Request) -> % read requests (and all through command)
+    erlang:display({xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, "READ REQ"}),
   process_read_request(Request, From, State);
 handle_call(Request, _, State = #state{socket = Socket, conn_state = ConnState, net_module = NetModule})
   when is_record(Request, killcursor) ->
@@ -99,6 +103,7 @@ handle_cast(_, State) ->
 %% @hidden
 handle_info({Net, _Socket, Data}, State = #state{request_storage = RequestStorage}) when Net =:= tcp; Net =:= ssl ->
   Buffer = <<(State#state.buffer)/binary, Data/binary>>,
+  io:format("RESPONSE: ~s\n", [Buffer]),
   {Responses, Pending} = mc_worker_logic:decode_responses(Buffer),
   UReqStor = mc_worker_logic:process_responses(Responses, RequestStorage),
   UState = need_hibernate(byte_size(Buffer), State),
@@ -120,6 +125,23 @@ terminate(_, State = #state{net_module = NetModule}) ->
 %% @hidden
 code_change(_Old, State, _Extra) ->
   {ok, State}.
+
+process_op_msg_request(Request, From, State) ->
+  #state{socket = Socket,
+    request_storage = RequestStorage,
+    conn_state = CS,
+    net_module = NetModule,
+    next_req_fun = Next} = State,
+    Database = CS#conn_state.database,
+    erlang:display({state, State}),
+    erlang:display({process_op_msg_here_ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ, Request}),
+    % timer:sleep(7000),
+    {ok, PacketSize, Id} = mc_worker_logic:make_request(Socket, NetModule, Database, Request),
+    % //timer:sleep(7000),
+    erlang:display({ssssssssssssssssssssssssssssssssssssssssssssssssssseeentttttttt, PacketSize}),
+    % timer:sleep(10000),
+    UState = need_hibernate(PacketSize, State),
+    {reply, ok, UState}.
 
 %% @private
 process_read_request(Request, From, State) ->

@@ -18,6 +18,7 @@
 %% API
 -export([request_worker/2, process_reply/2]).
 -export([read/2, read_one/2, read_one_sync/4]).
+-export([op_msg/2]).
 
 -spec read(pid() | atom(), query()) -> [] | pid().
 read(Connection, Request = #'query'{collection = Collection, batchsize = BatchSize}) ->
@@ -35,6 +36,11 @@ read_one(Connection, Request) ->
     [] -> undefined;
     [Doc | _] -> Doc
   end.
+
+op_msg(Connection, Payload) ->
+  % {0, Docs} = 
+  ok = request_worker(Connection, #'op_msg'{payload = Payload}).
+  % Docs.
 
 -spec request_worker(pid(), mongo_protocol:message()) -> ok | {non_neg_integer(), [map()]}.
 request_worker(Connection, Request) ->  %request to worker

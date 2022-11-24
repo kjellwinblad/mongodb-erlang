@@ -34,8 +34,12 @@ get_version(Socket, Database, SetOpts) ->
 
 -spec encode_request(mc_worker_api:database(), mongo_protocol:message()) -> {binary(), pos_integer()}.
 encode_request(Database, Request) ->
+    erlang:display({encode_request, Request}),
   RequestId = mongo_id_server:request_id(),
   Payload = mongo_protocol:put_message(Database, Request, RequestId),
+  BinToWire = <<(byte_size(Payload) + 4):32/little, Payload/binary>>,
+  erlang:display({bin_to_wireeee, BinToWire}),
+  io:format("<<~s>>~n", [[io_lib:format("~2.16.0B",[X]) || <<X:8>> <= BinToWire ]]),
   {<<(byte_size(Payload) + 4):32/little, Payload/binary>>, RequestId}.
 
 decode_responses(Data) ->

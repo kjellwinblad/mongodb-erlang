@@ -32,7 +32,9 @@
 -define(GetmoreOpcode, 2005).
 -define(DeleteOpcode, 2006).
 -define(KillcursorOpcode, 2007).
+-define(OpMsgOpcode, 2013).
 
+-define(OpMsgDbFieldIndex, 4).
 
 -spec dbcoll(database(), colldb()) -> bson:utf8().
 
@@ -46,6 +48,7 @@ dbcoll(Db, Coll) ->
 
 -spec put_message(mc_worker_api:database(), message(), requestid()) -> binary().
 put_message(Db, #insert{collection = Coll, documents = Docs}, _RequestId) ->
+    erlang:display({insert_opcode}),
   <<?put_header(?InsertOpcode),
   ?put_int32(0),
   (bson_binary:put_cstring(dbcoll(Db, Coll)))/binary,
@@ -70,6 +73,7 @@ put_message(_Db, #killcursor{cursorids = Cids}, _RequestId) ->
   <<<<?put_int64(Cid)>> || Cid <- Cids>>/binary>>;
 put_message(Db, #'query'{tailablecursor = TC, slaveok = SOK, nocursortimeout = NCT, awaitdata = AD,
   collection = Coll, skip = Skip, batchsize = Batch, selector = Sel, projector = Proj}, _RequestId) ->
+  erlang:display({query_opcode, zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz}),
   <<?put_header(?QueryOpcode),
   ?put_bits32(0, 0, bit(AD), bit(NCT), 0, bit(SOK), bit(TC), 0),
   (bson_binary:put_cstring(dbcoll(Db, Coll)))/binary,
@@ -82,8 +86,24 @@ put_message(Db, #getmore{collection = Coll, batchsize = Batch, cursorid = Cid}, 
   ?put_int32(0),
   (bson_binary:put_cstring(dbcoll(Db, Coll)))/binary,
   ?put_int32(Batch),
-  ?put_int64(Cid)>>.
+  ?put_int64(Cid)>>;
+put_message(Db, #op_msg{payload = Payload}, _RequestId) ->
+    % erlang:display({payload_cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, Payload#{<<"$db">> => Db}}),
+    <<
+      ?put_header(?OpMsgOpcode),
+      ?put_uint32(0), % Flags
+      (put_section_type_zero(Payload, Db))/binary
+    >>.
 
+
+
+put_section_type_zero(Payload, Db) ->
+    NewPayload = erlang:setelement(?OpMsgDbFieldIndex, Payload, Db),
+    erlang:display({new_paload, NewPayload}),
+    <<
+      ?put_uint8(0),
+      (bson_binary:put_document(NewPayload))/binary
+    >>.
 
 -spec get_reply(binary()) -> {requestid(), reply(), binary()}.
 get_reply(Message) ->

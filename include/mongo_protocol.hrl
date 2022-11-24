@@ -44,6 +44,11 @@
   projector = #{} :: mc_worker_api:projector()
 }).
 
+%% New form of command
+-record('op_msg', {
+  payload :: mc_worker_api:selector()
+}).
+
 -record(getmore, {
   collection :: colldb(),
   batchsize = 0 :: mc_worker_api:batchsize(),
