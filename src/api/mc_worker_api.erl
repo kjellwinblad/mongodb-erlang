@@ -61,7 +61,7 @@ insert(Connection, Coll, Docs, WC) ->
   Converted = prepare(Docs, fun assign_id/1),
   %% TODO how to handle old version
   %%{command(Connection, {<<"insert">>, Coll, <<"documents">>, Converted, <<"writeConcern">>, WC}), Converted},
-  {insert_msg_op(Connection, Coll, Converted), Converted}.
+  {insert_msg_op(Connection, Coll, WC, Converted), Converted}.
 
 
 
@@ -191,9 +191,10 @@ ensure_index(Connection, Coll, IndexSpec) ->
 
 
 
-insert_msg_op(Connection, Collection, Documents) ->
+insert_msg_op(Connection, Collection, WriteConcern, Documents) ->
     Payload = {<<"insert">>, Collection,
                <<"$db">>, <<"notset">>,
+               <<"writeConcern">>, WriteConcern,
                <<"documents">>, Documents},
     mc_connection_man:op_msg(Connection, Payload).
 

@@ -105,7 +105,9 @@ handle_info({Net, _Socket, Data}, State = #state{request_storage = RequestStorag
   Buffer = <<(State#state.buffer)/binary, Data/binary>>,
   io:format("RESPONSE: ~s\n", [Buffer]),
   {Responses, Pending} = mc_worker_logic:decode_responses(Buffer),
+  erlang:display({got_responses, Responses}),
   UReqStor = mc_worker_logic:process_responses(Responses, RequestStorage),
+  erlang:display({processed_responses, Responses}),
   UState = need_hibernate(byte_size(Buffer), State),
   {noreply, UState#state{buffer = Pending, request_storage = UReqStor}};
 handle_info({NetR, _Socket}, State) when NetR =:= tcp_closed; NetR =:= ssl_closed ->
@@ -127,21 +129,36 @@ code_change(_Old, State, _Extra) ->
   {ok, State}.
 
 process_op_msg_request(Request, From, State) ->
-  #state{socket = Socket,
-    request_storage = RequestStorage,
-    conn_state = CS,
-    net_module = NetModule,
-    next_req_fun = Next} = State,
+    #state{socket = Socket,
+           request_storage = RequestStorage,
+           conn_state = CS,
+           net_module = NetModule,
+           next_req_fun = Next} = State,
     Database = CS#conn_state.database,
     erlang:display({state, State}),
     erlang:display({process_op_msg_here_ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ, Request}),
     % timer:sleep(7000),
+    {UpdReq, Selector} = get_query_selector(Request, CS),
     {ok, PacketSize, Id} = mc_worker_logic:make_request(Socket, NetModule, Database, Request),
     % //timer:sleep(7000),
     erlang:display({ssssssssssssssssssssssssssssssssssssssssssssssssssseeentttttttt, PacketSize}),
     % timer:sleep(10000),
     UState = need_hibernate(PacketSize, State),
-    {reply, ok, UState}.
+    Payload = Request#op_msg.payload,
+    case bson:lookup(<<"writeConcern">>, Payload) of
+        {<<"w">>, 0} -> %no concern request
+            Next(),
+            {reply, #reply{
+                       cursornotfound = false,
+                       queryerror = false,
+                       cursorid = 0,
+                       documents = [#{<<"ok">> => 1}]}, UState};
+        _ ->  %ordinary request with response
+            Next(),
+            RespFun = mc_worker_logic:get_resp_fun(UpdReq, From),  % save function, which will be called on response
+            URStorage = RequestStorage#{Id => RespFun},
+            {noreply, UState#state{request_storage = URStorage}}
+    end.
 
 %% @private
 process_read_request(Request, From, State) ->

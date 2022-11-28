@@ -106,7 +106,7 @@ put_section_type_zero(Payload, Db) ->
     >>.
 
 -spec get_reply(binary()) -> {requestid(), reply(), binary()}.
-get_reply(Message) ->
+get_reply(<<?get_header(?ReplyOpcode, _), _/binary>> = Message) ->
   <<?get_header(?ReplyOpcode, ResponseTo),
   ?get_bits32(_, _, _, _, AwaitCapable, _, QueryError, CursorNotFound),
   ?get_int64(CursorId),
@@ -122,7 +122,22 @@ get_reply(Message) ->
     startingfrom = StartingFrom,
     documents = Docs
   },
-  {ResponseTo, Reply, BinRest}.
+  {ResponseTo, Reply, BinRest};
+get_reply(<<?get_header(?OpMsgOpcode, _), _/binary>> = Message) ->
+    <<?get_int32(_RequestId_),
+      ?get_int32(ResponseTo),
+      ?get_uint32(?OpMsgOpcode),
+      ?get_uint32(_Flags),
+      Bin1/binary>> = Message,
+    %% For now assume the sequence type is zero
+    <<?get_uint8(0), % Sequence type
+      Bin2/binary>> = Bin1,
+    {Doc, Rest} = bson_binary:get_map(Bin2),
+    erlang:display({got_op_msggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg, Doc}),
+    Reply = #op_msg{
+               payload = Doc
+              },
+    {ResponseTo, Reply, Rest}.
 
 -spec binarize(binary() | atom()) -> binary().
 %@doc Ensures the given term is converted to a UTF-8 binary.

@@ -49,19 +49,24 @@ decode_responses(Data) ->
 get_resp_fun(Read, From) when is_record(Read, query); is_record(Read, getmore) ->
   fun(Response) -> gen_server:reply(From, Response) end;
 get_resp_fun(Write, From) when is_record(Write, insert); is_record(Write, update); is_record(Write, delete) ->
-  process_write_response(From).
+  process_write_response(From);
+get_resp_fun(OpMsg, From) when is_record(OpMsg, op_msg) ->
+  process_op_msg_response(From).
 
 -spec process_responses(Responses :: list(), RequestStorage :: map()) -> UpdStorage :: map().
 process_responses(Responses, RequestStorage) ->
+  erlang:display({heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeejjjjjjjjjjjjjjj,Responses, RequestStorage}),
   lists:foldl(
     fun({Id, Response}, UReqStor) ->
       case maps:find(Id, UReqStor) of
         error ->
+              erlang:display(errorrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr),
           UReqStor;
         {ok, Fun} ->
+              erlang:display(found_response),
           UpdReqStor = maps:remove(Id, UReqStor),
           try Fun(Response) % call on-response function
-          catch _:_ -> ok
+          catch X:Y -> erlang:display({yes_got_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, X,Y, Response}),ok
           end,
           UpdReqStor
       end
@@ -108,6 +113,7 @@ decode_responses(<<Length:32/signed-little, Data/binary>>, Acc) when byte_size(D
   PayloadLength = Length - 4,
   <<Payload:PayloadLength/binary, Rest/binary>> = Data,
   {Id, Response, <<>>} = mongo_protocol:get_reply(Payload),
+  erlang:display(yes_got_somethingaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa),
   decode_responses(Rest, [{Id, Response} | Acc]);
 decode_responses(Data, Acc) ->
   {lists:reverse(Acc), Data}.
@@ -124,6 +130,15 @@ process_write_response(From) ->
           10058 -> gen_server:reply(From, {error, {not_master, 10058}});
           Code -> gen_server:reply(From, {error, {write_failure, Code, String}})
         end
+    end
+  end.
+
+process_op_msg_response(From) ->
+  fun(#op_msg{payload = Doc}) ->
+    case maps:get(<<"writeErrors">>, Doc, undefined) of
+      undefined -> gen_server:reply(From, ok);
+      _String ->
+          gen_server:reply(From, {error, Doc})
     end
   end.
 

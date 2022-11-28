@@ -11,4 +11,4 @@ main(_) ->
     Collection = <<"test_coll">>,
     %%timer:sleep(10000),
     mc_worker_api:insert(Connection, Collection, [
-                                                  #{<<"_id">> => 2}]).
+                                                  #{<<"_id">> => 3}]).
