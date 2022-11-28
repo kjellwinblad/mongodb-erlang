@@ -57,7 +57,6 @@ insert(Connection, Coll, Doc, WC) when is_tuple(Doc); is_map(Doc) ->
   {Res, [UDoc | _]} = insert(Connection, Coll, [Doc], WC),
   {Res, UDoc};
 insert(Connection, Coll, Docs, WC) ->
-    erlang:display({inserttttttttttttttttttttt, Connection}),
   Converted = prepare(Docs, fun assign_id/1),
   %% TODO how to handle old version
   %%{command(Connection, {<<"insert">>, Coll, <<"documents">>, Converted, <<"writeConcern">>, WC}), Converted},
@@ -201,7 +200,6 @@ insert_msg_op(Connection, Collection, WriteConcern, Documents) ->
 %% @doc Execute given MongoDB command and return its result.
 -spec command(pid(), mc_worker_api:selector()) -> {boolean(), map()}. % Action
 command(Connection, Query) when is_record(Query, query) ->
-  erlang:display({Connection, Query}),
   Doc = mc_connection_man:read_one(Connection, Query),
   mc_connection_man:process_reply(Doc, Query);
 command(Connection, Command) ->

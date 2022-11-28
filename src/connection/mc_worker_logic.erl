@@ -34,12 +34,8 @@ get_version(Socket, Database, SetOpts) ->
 
 -spec encode_request(mc_worker_api:database(), mongo_protocol:message()) -> {binary(), pos_integer()}.
 encode_request(Database, Request) ->
-    erlang:display({encode_request, Request}),
   RequestId = mongo_id_server:request_id(),
   Payload = mongo_protocol:put_message(Database, Request, RequestId),
-  BinToWire = <<(byte_size(Payload) + 4):32/little, Payload/binary>>,
-  erlang:display({bin_to_wireeee, BinToWire}),
-  io:format("<<~s>>~n", [[io_lib:format("~2.16.0B",[X]) || <<X:8>> <= BinToWire ]]),
   {<<(byte_size(Payload) + 4):32/little, Payload/binary>>, RequestId}.
 
 decode_responses(Data) ->
@@ -55,18 +51,15 @@ get_resp_fun(OpMsg, From) when is_record(OpMsg, op_msg) ->
 
 -spec process_responses(Responses :: list(), RequestStorage :: map()) -> UpdStorage :: map().
 process_responses(Responses, RequestStorage) ->
-  erlang:display({heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeejjjjjjjjjjjjjjj,Responses, RequestStorage}),
   lists:foldl(
     fun({Id, Response}, UReqStor) ->
       case maps:find(Id, UReqStor) of
         error ->
-              erlang:display(errorrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr),
           UReqStor;
         {ok, Fun} ->
-              erlang:display(found_response),
           UpdReqStor = maps:remove(Id, UReqStor),
           try Fun(Response) % call on-response function
-          catch X:Y -> erlang:display({yes_got_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, X,Y, Response}),ok
+          catch _:_ -> ok
           end,
           UpdReqStor
       end
@@ -113,7 +106,6 @@ decode_responses(<<Length:32/signed-little, Data/binary>>, Acc) when byte_size(D
   PayloadLength = Length - 4,
   <<Payload:PayloadLength/binary, Rest/binary>> = Data,
   {Id, Response, <<>>} = mongo_protocol:get_reply(Payload),
-  erlang:display(yes_got_somethingaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa),
   decode_responses(Rest, [{Id, Response} | Acc]);
 decode_responses(Data, Acc) ->
   {lists:reverse(Acc), Data}.

@@ -83,7 +83,6 @@ handle_call(Request, From, State) when ?OP_MSG(Request) ->  % MongoDB 6 MsgOp re
 handle_call(Request, From, State) when ?WRITE(Request) ->  % write requests (deprecated)
   process_write_request(Request, From, State);
 handle_call(Request, From, State) when ?READ(Request) -> % read requests (and all through command)
-    erlang:display({xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, "READ REQ"}),
   process_read_request(Request, From, State);
 handle_call(Request, _, State = #state{socket = Socket, conn_state = ConnState, net_module = NetModule})
   when is_record(Request, killcursor) ->
@@ -103,11 +102,9 @@ handle_cast(_, State) ->
 %% @hidden
 handle_info({Net, _Socket, Data}, State = #state{request_storage = RequestStorage}) when Net =:= tcp; Net =:= ssl ->
   Buffer = <<(State#state.buffer)/binary, Data/binary>>,
-  io:format("RESPONSE: ~s\n", [Buffer]),
+  %%io:format("RESPONSE: ~s\n", [Buffer]),
   {Responses, Pending} = mc_worker_logic:decode_responses(Buffer),
-  erlang:display({got_responses, Responses}),
   UReqStor = mc_worker_logic:process_responses(Responses, RequestStorage),
-  erlang:display({processed_responses, Responses}),
   UState = need_hibernate(byte_size(Buffer), State),
   {noreply, UState#state{buffer = Pending, request_storage = UReqStor}};
 handle_info({NetR, _Socket}, State) when NetR =:= tcp_closed; NetR =:= ssl_closed ->
@@ -135,14 +132,7 @@ process_op_msg_request(Request, From, State) ->
            net_module = NetModule,
            next_req_fun = Next} = State,
     Database = CS#conn_state.database,
-    erlang:display({state, State}),
-    erlang:display({process_op_msg_here_ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ, Request}),
-    % timer:sleep(7000),
-    {UpdReq, Selector} = get_query_selector(Request, CS),
     {ok, PacketSize, Id} = mc_worker_logic:make_request(Socket, NetModule, Database, Request),
-    % //timer:sleep(7000),
-    erlang:display({ssssssssssssssssssssssssssssssssssssssssssssssssssseeentttttttt, PacketSize}),
-    % timer:sleep(10000),
     UState = need_hibernate(PacketSize, State),
     Payload = Request#op_msg.payload,
     case bson:lookup(<<"writeConcern">>, Payload) of
@@ -155,7 +145,7 @@ process_op_msg_request(Request, From, State) ->
                        documents = [#{<<"ok">> => 1}]}, UState};
         _ ->  %ordinary request with response
             Next(),
-            RespFun = mc_worker_logic:get_resp_fun(UpdReq, From),  % save function, which will be called on response
+            RespFun = mc_worker_logic:get_resp_fun(Request, From),  % save function, which will be called on response
             URStorage = RequestStorage#{Id => RespFun},
             {noreply, UState#state{request_storage = URStorage}}
     end.
