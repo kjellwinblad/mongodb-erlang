@@ -126,12 +126,15 @@ process_write_response(From) ->
   end.
 
 process_op_msg_response(From) ->
-  fun(#op_msg{payload = Doc}) ->
-    case maps:get(<<"writeErrors">>, Doc, undefined) of
-      undefined -> gen_server:reply(From, ok);
-      _String ->
-          gen_server:reply(From, {error, Doc})
-    end
+  fun(#op_msg{} = OpMsg) ->
+          %erlang:display({xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, Doc}),
+          % F = fun(ErrorField, ok) when is_map_key(ErrorField, Doc) ->
+          %             {error, Doc};
+          %        (_, ok) ->
+          %             Doc
+          %     end,
+          % Response = lists:foldl(F, ok, [<<"writeErrors">>, <<"writeConcernError">>]),
+          gen_server:reply(From, OpMsg)
   end.
 
 may_ipv6(Host, Opts) when tuple_size(Host) =:= 4 ->

@@ -37,10 +37,9 @@ read_one(Connection, Request) ->
     [Doc | _] -> Doc
   end.
 
-op_msg(Connection, Payload) ->
-  % {0, Docs} = 
-  ok = request_worker(Connection, #'op_msg'{payload = Payload}).
-  % Docs.
+op_msg(Connection, OpMsg) ->
+  Doc = request_worker(Connection, OpMsg),
+  process_reply(Doc, OpMsg).
 
 -spec request_worker(pid(), mongo_protocol:message()) -> ok | {non_neg_integer(), [map()]}.
 request_worker(Connection, Request) ->  %request to worker
@@ -70,7 +69,9 @@ reply(#reply{cursornotfound = false, queryerror = true} = Reply) ->
 reply(#reply{cursornotfound = true, queryerror = false} = Reply) ->
   erlang:error({bad_cursor, Reply#reply.cursorid});
 reply({error, Error}) ->
-  process_error(error, Error).
+  process_error(error, Error);
+reply(#op_msg{documents = Documents}) when map_get(<<"ok">>, Documents) == 1 -> %% is_map_key(<<"ok">>, Documents), 
+    Documents.
 
 %% @private
 -spec process_error(atom() | integer(), term()) -> no_return().

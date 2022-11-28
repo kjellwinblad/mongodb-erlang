@@ -134,9 +134,9 @@ process_op_msg_request(Request, From, State) ->
     Database = CS#conn_state.database,
     {ok, PacketSize, Id} = mc_worker_logic:make_request(Socket, NetModule, Database, Request),
     UState = need_hibernate(PacketSize, State),
-    Payload = Request#op_msg.payload,
-    case bson:lookup(<<"writeConcern">>, Payload) of
-        {<<"w">>, 0} -> %no concern request
+    ExtraFields = Request#op_msg.extra_fields,
+    case lists:keyfind(<<"writeConcern">>, 1, ExtraFields) of
+        {_, {<<"w">>, 0}} -> %no concern request
             Next(),
             {reply, #reply{
                        cursornotfound = false,

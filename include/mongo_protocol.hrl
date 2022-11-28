@@ -8,6 +8,7 @@
 -type colldb() :: collection() | {database(), collection()}.
 -type collection() :: binary() | atom(). % without db prefix
 -type database() :: binary() | atom().
+-type command() :: insert | update | delete.
 
 
 %% write
@@ -45,8 +46,13 @@
 }).
 
 %% New form of command
--record('op_msg', {
-  payload :: mc_worker_api:selector()
+-record(op_msg, {
+  command :: command(),
+  collection :: colldb(),
+  database = [] :: [] | mc_worker_api:database(),
+  extra_fields = {} :: bson:document(),
+  documents_name = <<"documents">> :: bson:utf8(),
+  documents :: any()
 }).
 
 -record(getmore, {

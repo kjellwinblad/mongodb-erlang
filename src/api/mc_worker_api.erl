@@ -9,15 +9,15 @@
 -export([
   connect/1,
   disconnect/1,
-  insert/3,
-  update/4,
-  update/6,
-  delete/3,
-  delete_one/3,
-  delete_limit/4,
-  insert/4,
-  update/7,
-  delete_limit/5]).
+  insert/3,%DONE
+  update/4,%DONE
+  update/6,%DONE
+  delete/3,%DONE
+  delete_one/3,%DONE
+  delete_limit/4,%DONE
+  insert/4,%DONE
+  update/7,%DONE
+  delete_limit/5]).%DONE
 
 -export([
   find_one/3,
@@ -56,11 +56,23 @@ insert(Connection, Coll, Docs) ->
 insert(Connection, Coll, Doc, WC) when is_tuple(Doc); is_map(Doc) ->
   {Res, [UDoc | _]} = insert(Connection, Coll, [Doc], WC),
   {Res, UDoc};
-insert(Connection, Coll, Docs, WC) ->
+insert(Connection, Coll, Docs, WriteConcern) ->
   Converted = prepare(Docs, fun assign_id/1),
-  %% TODO how to handle old version
-  %%{command(Connection, {<<"insert">>, Coll, <<"documents">>, Converted, <<"writeConcern">>, WC}), Converted},
-  {insert_msg_op(Connection, Coll, WC, Converted), Converted}.
+  case mc_utils:use_legacy_protocol() of
+      true -> 
+          erlang:display(legactyyyyyyyy),
+          {command(Connection, 
+                   {<<"insert">>, Coll,
+                    <<"documents">>, Converted,
+                    <<"writeConcern">>, WriteConcern}),
+           Converted};
+      false -> 
+          Msg = #op_msg{command = insert,
+                        collection = Coll,
+                        extra_fields = [{<<"writeConcern">>, WriteConcern}],
+                        documents = Docs},
+          mc_connection_man:op_msg(Connection, Msg)
+  end.
 
 
 
@@ -72,17 +84,32 @@ update(Connection, Coll, Selector, Doc) ->
 %% @doc Replace the document matching criteria entirely with the new Document.
 -spec update(pid(), collection(), selector(), map(), boolean(), boolean()) -> {boolean(), map()}.
 update(Connection, Coll, Selector, Doc, Upsert, MultiUpdate) ->
-  Converted = prepare(Doc, fun(D) -> D end),
-  command(Connection, {<<"update">>, Coll, <<"updates">>,
-    [#{<<"q">> => Selector, <<"u">> => Converted, <<"upsert">> => Upsert, <<"multi">> => MultiUpdate}]}).
+  update(Connection, Coll, Selector, Doc, Upsert, MultiUpdate, {<<"w">>, 1}).
 
 %% @doc Replace the document matching criteria entirely with the new Document.
 -spec update(pid(), collection(), selector(), map(), boolean(), boolean(), bson:document()) -> {boolean(), map()}.
 update(Connection, Coll, Selector, Doc, Upsert, MultiUpdate, WC) ->
   Converted = prepare(Doc, fun(D) -> D end),
-  command(Connection, {<<"update">>, Coll, <<"updates">>,
-    [#{<<"q">> => Selector, <<"u">> => Converted, <<"upsert">> => Upsert, <<"multi">> => MultiUpdate}],
-    <<"writeConcern">>, WC}).
+  case mc_utils:use_legacy_protocol() of
+      true -> 
+          erlang:display(legactyyyyyyyy_update),
+          command(Connection, {<<"update">>, Coll, <<"updates">>,
+                               [#{<<"q">> => Selector,
+                                  <<"u">> => Converted,
+                                  <<"upsert">> => Upsert,
+                                  <<"multi">> => MultiUpdate}],
+                               <<"writeConcern">>, WC});
+      false -> 
+          Msg = #op_msg{command = update,
+                        collection = Coll,
+                        extra_fields = [{<<"writeConcern">>, WC}],
+                        documents_name = updates,
+                        documents = [#{<<"q">> => Selector,
+                                       <<"u">> => Converted,
+                                       <<"upsert">> => Upsert,
+                                       <<"multi">> => MultiUpdate}]},
+          mc_connection_man:op_msg(Connection, Msg)
+  end.
 
 %% @doc Delete selected documents
 -spec delete(pid(), collection(), selector()) -> {boolean(), map()}.
@@ -97,8 +124,22 @@ delete_one(Connection, Coll, Selector) ->
 %% @doc Delete selected documents
 -spec delete_limit(pid(), collection(), selector(), integer()) -> {boolean(), map()}.
 delete_limit(Connection, Coll, Selector, N) ->
-  command(Connection, {<<"delete">>, Coll, <<"deletes">>,
-    [#{<<"q">> => Selector, <<"limit">> => N}]}).
+  case mc_utils:use_legacy_protocol() of
+      true -> 
+          erlang:display(legactyyyyyyyy_delete),
+          command(Connection, {<<"delete">>, Coll, <<"deletes">>,
+                               [#{<<"q">> => Selector, <<"limit">> => N}]});
+      false -> 
+          Msg = #op_msg{command = delete,
+                        collection = Coll,
+                        extra_fields = [{<<"writeConcern">>, {<<"w">>, 1}}],
+                        documents_name = <<"deletes">>,
+                        documents = [#{<<"q">> => Selector,
+                                       <<"limit">> => 1}]},
+          mc_connection_man:op_msg(Connection, Msg)
+  end.
+
+
 
 %% @doc Delete selected documents
 -spec delete_limit(pid(), collection(), selector(), integer(), bson:document()) -> {boolean(), map()}.
@@ -190,12 +231,16 @@ ensure_index(Connection, Coll, IndexSpec) ->
 
 
 
-insert_msg_op(Connection, Collection, WriteConcern, Documents) ->
-    Payload = {<<"insert">>, Collection,
-               <<"$db">>, <<"notset">>,
-               <<"writeConcern">>, WriteConcern,
-               <<"documents">>, Documents},
-    mc_connection_man:op_msg(Connection, Payload).
+% insert_msg_op(Connection, Collection, WriteConcern, Documents) ->
+%     % Payload = {<<"insert">>, Collection,
+%     %            <<"$db">>, <<"notset">>,
+%     %            <<"writeConcern">>, WriteConcern,
+%     %            <<"documents">>, Documents},
+%     Msg = #op_msg{command = insert,
+%                   collection = Collection,
+%                   extra_fields = bson:document([{<<"writeConcern">>, WriteConcern}]),
+%                   documents = Documents},
+%     mc_connection_man:op_msg(Connection, Msg).
 
 %% @doc Execute given MongoDB command and return its result.
 -spec command(pid(), mc_worker_api:selector()) -> {boolean(), map()}. % Action

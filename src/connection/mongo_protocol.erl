@@ -85,20 +85,33 @@ put_message(Db, #getmore{collection = Coll, batchsize = Batch, cursorid = Cid}, 
   (bson_binary:put_cstring(dbcoll(Db, Coll)))/binary,
   ?put_int32(Batch),
   ?put_int64(Cid)>>;
-put_message(Db, #op_msg{payload = Payload}, _RequestId) ->
+put_message(Db, #op_msg{} = OpMsg, _RequestId) ->
     <<
       ?put_header(?OpMsgOpcode),
       ?put_uint32(0), % Flags
-      (put_section_type_zero(Payload, Db))/binary
+      (put_section_type_zero(OpMsg#op_msg{database = Db}))/binary
     >>.
 
 
 
-put_section_type_zero(Payload, Db) ->
-    NewPayload = erlang:setelement(?OpMsgDbFieldIndex, Payload, Db),
+put_section_type_zero(#op_msg{
+                         command = Command,
+                         collection = Collection,
+                         database = Database,
+                         extra_fields = ExtraFields,
+                         documents_name = DocumentsName,
+                         documents = Documents
+                        }) ->
+    Msg = [
+            {erlang:atom_to_binary(Command), Collection},
+            {<<"$db">>, Database}
+          ] ++
+            ExtraFields
+            ++
+            [{DocumentsName, Documents}],
     <<
       ?put_uint8(0),
-      (bson_binary:put_document(NewPayload))/binary
+      (bson_binary:put_document(bson:document(Msg)))/binary
     >>.
 
 -spec get_reply(binary()) -> {requestid(), reply(), binary()}.
@@ -130,7 +143,7 @@ get_reply(<<?get_header(?OpMsgOpcode, _), _/binary>> = Message) ->
       Bin2/binary>> = Bin1,
     {Doc, Rest} = bson_binary:get_map(Bin2),
     Reply = #op_msg{
-               payload = Doc
+               documents = Doc
               },
     {ResponseTo, Reply, Rest}.
 
