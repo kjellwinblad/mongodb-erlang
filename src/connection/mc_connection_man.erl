@@ -22,11 +22,19 @@
 
 -spec read(pid() | atom(), query()) -> [] | pid().
 read(Connection, Request = #'query'{collection = Collection, batchsize = BatchSize}) ->
+    read(Connection, Request, Collection, BatchSize);
+read(Connection, #'op_msg_command'{command_doc = ([{_, Collection} | _ ] = Fields)} = Request)  ->
+    BatchSize = lists:keyfind(<<"batchSize">>, 1, Fields),
+    read(Connection, Request, Collection, BatchSize).
+
+read(Connection, Request, Collection, BatchSize) ->
   case request_worker(Connection, Request) of
     {_, []} ->
       [];
     {Cursor, Batch} ->
-      mc_cursor:start(Connection, Collection, Cursor, BatchSize, Batch)
+      erlang:display({got_here_with, {Cursor, Batch}}),
+      mc_cursor:start(Connection, Collection, Cursor, BatchSize, Batch);
+      X -> erlang:display({xxxxxxxxxxxxxxxxxx, X})
   end.
 
 -spec read_one(pid() | atom(), query()) -> undefined | map().
@@ -72,8 +80,12 @@ reply(#reply{cursornotfound = true, queryerror = false} = Reply) ->
   erlang:error({bad_cursor, Reply#reply.cursorid});
 reply({error, Error}) ->
   process_error(error, Error);
-reply(#op_msg_response{response_doc = Document}) when map_get(<<"ok">>, Document) == 1 -> %% is_map_key(<<"ok">>, Documents), 
-    Document.
+reply(#op_msg_response{response_doc = (#{<<"cursor">>:=#{<<"firstBatch">>:=Batch,<<"id">>:=Id}} = Doc)}) when map_get(<<"ok">>, Doc) == 1 -> 
+    {Id, Batch};
+reply(#op_msg_response{response_doc = Document}) when map_get(<<"ok">>, Document) == 1 ->
+    Document;
+reply(Resp) ->
+    erlang:error({error_cannot_parse_response, Resp}).
 
 %% @private
 -spec process_error(atom() | integer(), term()) -> no_return().

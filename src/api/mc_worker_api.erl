@@ -27,9 +27,9 @@
   find/2,
   find_one/2]).%DONE
 -export([
-  count/3,
-  count/4,
-  count/2]).
+  count/3,%DONE
+  count/4,%DONE
+  count/2]).%DONE
 -export([
   command/2,%DONE
   command/3,%DONE
@@ -217,7 +217,13 @@ find(Connection, Coll, Selector) ->
 find(Connection, Coll, Selector, Args) ->
   Projector = maps:get(projector, Args, #{}),
   Skip = maps:get(skip, Args, 0),
-  BatchSize = maps:get(batchsize, Args, 0),
+  BatchSize = 
+        case mc_utils:use_legacy_protocol() of
+            true ->
+                maps:get(batchsize, Args, 0);
+            false ->
+                maps:get(batchsize, Args, 101)
+        end,
   ReadPref = maps:get(readopts, Args, #{<<"mode">> => <<"primary">>}),
   find(Connection,
     #'query'{
@@ -232,7 +238,28 @@ find(Connection, Coll, Selector, Args) ->
 
 -spec find(pid() | atom(), query()) -> {ok, cursor()} | [].
 find(Connection, Query) when is_record(Query, query) ->
-  case mc_connection_man:read(Connection, Query) of
+    FixedQuery =
+        case mc_utils:use_legacy_protocol() of
+            true -> Query;
+            false ->
+                #'query'{collection = Coll,
+                         skip = Skip,
+                         selector = Selector,
+                         batchsize = BatchSize,
+                         projector = Projector} = Query,
+                {ReadPref, NewSelector} = mongoc:extract_read_preference(Selector),
+                CommandDoc = [
+                              {<<"find">>, Coll},
+                              {<<"$readPreference">>, ReadPref},
+                              {<<"filter">>, NewSelector},
+                              {<<"projection">>, Projector},
+                              {<<"skip">>, Skip},
+                              {<<"batchSize">>, BatchSize}
+                             ],
+                erlang:display(CommandDoc),
+                #op_msg_command{command_doc=CommandDoc} 
+        end,
+  case mc_connection_man:read(Connection, FixedQuery) of
     [] -> [];
     {ok, Cursor} when is_pid(Cursor) ->
       {ok, Cursor}
