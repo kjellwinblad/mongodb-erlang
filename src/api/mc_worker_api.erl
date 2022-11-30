@@ -20,12 +20,12 @@
   delete_limit/5]).%DONE
 
 -export([
-  find_one/3,
-  find_one/4,
+  find_one/3,%DONE
+  find_one/4,%DONE
   find/3,
   find/4,
   find/2,
-  find_one/2]).
+  find_one/2]).%DONE
 -export([
   count/3,
   count/4,
@@ -192,7 +192,19 @@ find_one(Connection, Coll, Selector, Args) ->
 
 -spec find_one(pid() | atom(), query()) -> map() | undefined.
 find_one(Connection, Query) when is_record(Query, query) ->
-  mc_connection_man:read_one(Connection, Query).
+    case mc_utils:use_legacy_protocol() of
+        true -> mc_connection_man:read_one(Connection, Query);
+        false ->
+            #'query'{collection = Coll,
+                     skip = Skip,
+                     selector = Selector,
+                     projector = Projector} = Query,
+            {RP, NewSelector} = mongoc:extract_read_preference(Selector),
+            Args = #{projector => Projector,
+                     skip => Skip,
+                     readopts => RP},
+            find_one(Connection, Coll, NewSelector, Args)
+    end.
 
 %% @doc Return selected documents.
 -spec find(pid(), colldb(), selector()) -> {ok, cursor()} | [].

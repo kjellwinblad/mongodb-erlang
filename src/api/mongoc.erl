@@ -21,6 +21,7 @@
   transaction/4,
   status/1,
   append_read_preference/2,
+  extract_read_preference/1,
   find_query/6,
   count_query/4,
   find_one_query/5]).
@@ -138,6 +139,19 @@ append_read_preference(Selector, RP) when is_tuple(Selector) andalso element(1, 
 append_read_preference(Selector, RP) ->
   #{<<"$query">> => Selector, <<"$readPreference">> => RP}.
 
+
+extract_read_preference(#{<<"$readPreference">> := RP} = Selector) ->
+    {RP, maps:remove(<<"$readPreference">>, Selector)};
+extract_read_preference(Selector) when is_map(Selector) ->
+    {#{<<"mode">> => <<"primary">>}, Selector};
+extract_read_preference(Selector) when is_tuple(Selector) ->
+  Fields = bson:fields(Selector),
+  case lists:keytake(<<"$readPreference">>, 1, Fields) of
+      {value, {_, RP}, NewFields} ->
+          {RP, bson:document(NewFields)};
+      false ->
+          {#{<<"mode">> => <<"primary">>}, Selector}
+  end.
 
 %%%===================================================================
 %%% Internal functions
