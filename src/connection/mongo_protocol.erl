@@ -85,16 +85,30 @@ put_message(Db, #getmore{collection = Coll, batchsize = Batch, cursorid = Cid}, 
   (bson_binary:put_cstring(dbcoll(Db, Coll)))/binary,
   ?put_int32(Batch),
   ?put_int64(Cid)>>;
-put_message(Db, #op_msg{} = OpMsg, _RequestId) ->
+put_message(Db, #op_msg_write_op{} = OpMsg, _RequestId) ->
     <<
       ?put_header(?OpMsgOpcode),
       ?put_uint32(0), % Flags
-      (put_section_type_zero(OpMsg#op_msg{database = Db}))/binary
+      (put_section_type_zero(OpMsg#op_msg_write_op{database = Db}))/binary
+    >>;
+put_message(Db, #op_msg_command{} = OpMsg, _RequestId) ->
+    <<
+      ?put_header(?OpMsgOpcode),
+      ?put_uint32(0), % Flags
+      (put_section_type_zero(OpMsg#op_msg_command{database = Db}))/binary
     >>.
 
 
 
-put_section_type_zero(#op_msg{
+put_section_type_zero(#op_msg_command {
+                         command_doc = Doc,
+                         database = Database
+                        }) ->
+    <<
+      ?put_uint8(0),
+      (bson_binary:put_document(bson:document(Doc ++ [{<<"$db">>, Database}])))/binary
+    >>;
+put_section_type_zero(#op_msg_write_op{
                          command = Command,
                          collection = Collection,
                          database = Database,
@@ -142,8 +156,8 @@ get_reply(<<?get_header(?OpMsgOpcode, _), _/binary>> = Message) ->
     <<?get_uint8(0), % Sequence type
       Bin2/binary>> = Bin1,
     {Doc, Rest} = bson_binary:get_map(Bin2),
-    Reply = #op_msg{
-               documents = Doc
+    Reply = #op_msg_response{
+               response_doc = Doc
               },
     {ResponseTo, Reply, Rest}.
 

@@ -5,7 +5,7 @@
 
 -define(WRITE(Req), is_record(Req, insert); is_record(Req, update); is_record(Req, delete)).
 -define(READ(Req), is_record(Request, 'query'); is_record(Request, getmore)).
--define(OP_MSG(Req), is_record(Request, 'op_msg')).
+-define(OP_MSG(Req), is_record(Request, 'op_msg_command'); is_record(Request, 'op_msg_write_op')).
 
 -export([start_link/1, disconnect/1, hibernate/1]).
 -export([
@@ -134,8 +134,7 @@ process_op_msg_request(Request, From, State) ->
     Database = CS#conn_state.database,
     {ok, PacketSize, Id} = mc_worker_logic:make_request(Socket, NetModule, Database, Request),
     UState = need_hibernate(PacketSize, State),
-    ExtraFields = Request#op_msg.extra_fields,
-    case lists:keyfind(<<"writeConcern">>, 1, ExtraFields) of
+    case get_op_msg_write_concern(Request) of
         {_, {<<"w">>, 0}} -> %no concern request
             Next(),
             {reply, #reply{
@@ -148,6 +147,17 @@ process_op_msg_request(Request, From, State) ->
             RespFun = mc_worker_logic:get_resp_fun(Request, From),  % save function, which will be called on response
             URStorage = RequestStorage#{Id => RespFun},
             {noreply, UState#state{request_storage = URStorage}}
+    end.
+
+get_op_msg_write_concern(#op_msg_write_op{extra_fields = ExtraFields}) ->
+    case lists:keyfind(<<"writeConcern">>, 1, ExtraFields) of
+        {_, WC} -> WC;
+        _ -> not_found
+    end;
+get_op_msg_write_concern(#op_msg_command{command_doc = DocList}) ->
+    case lists:keyfind(<<"writeConcern">>, 1, DocList) of
+        {_, WC} -> WC;
+        _ -> not_found
     end.
 
 %% @private

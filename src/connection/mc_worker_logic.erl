@@ -46,7 +46,7 @@ get_resp_fun(Read, From) when is_record(Read, query); is_record(Read, getmore) -
   fun(Response) -> gen_server:reply(From, Response) end;
 get_resp_fun(Write, From) when is_record(Write, insert); is_record(Write, update); is_record(Write, delete) ->
   process_write_response(From);
-get_resp_fun(OpMsg, From) when is_record(OpMsg, op_msg) ->
+get_resp_fun(OpMsg, From) when is_record(OpMsg, op_msg_write_op); is_record(OpMsg, op_msg_command) ->
   process_op_msg_response(From).
 
 -spec process_responses(Responses :: list(), RequestStorage :: map()) -> UpdStorage :: map().
@@ -126,7 +126,7 @@ process_write_response(From) ->
   end.
 
 process_op_msg_response(From) ->
-  fun(#op_msg{} = OpMsg) ->
+  fun(#op_msg_response{} = OpMsg) ->
           %erlang:display({xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, Doc}),
           % F = fun(ErrorField, ok) when is_map_key(ErrorField, Doc) ->
           %             {error, Doc};

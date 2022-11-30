@@ -58,6 +58,8 @@ read_one_sync(Socket, Database, Request, SetOpts) ->
     [Doc | _] -> Doc
   end.
 
+op_msg_sync(Socket, Database, Request, SetOpts) ->
+  request_raw(Socket, Database, Request, SetOpts).
 
 %% @private
 reply(ok) -> ok;
@@ -70,8 +72,8 @@ reply(#reply{cursornotfound = true, queryerror = false} = Reply) ->
   erlang:error({bad_cursor, Reply#reply.cursorid});
 reply({error, Error}) ->
   process_error(error, Error);
-reply(#op_msg{documents = Documents}) when map_get(<<"ok">>, Documents) == 1 -> %% is_map_key(<<"ok">>, Documents), 
-    Documents.
+reply(#op_msg_response{response_doc = Document}) when map_get(<<"ok">>, Document) == 1 -> %% is_map_key(<<"ok">>, Documents), 
+    Document.
 
 %% @private
 -spec process_error(atom() | integer(), term()) -> no_return().

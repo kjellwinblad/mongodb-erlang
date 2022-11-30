@@ -67,10 +67,10 @@ insert(Connection, Coll, Docs, WriteConcern) ->
                     <<"writeConcern">>, WriteConcern}),
            Converted};
       false -> 
-          Msg = #op_msg{command = insert,
-                        collection = Coll,
-                        extra_fields = [{<<"writeConcern">>, WriteConcern}],
-                        documents = Docs},
+          Msg = #op_msg_write_op{command = insert,
+                                 collection = Coll,
+                                 extra_fields = [{<<"writeConcern">>, WriteConcern}],
+                                 documents = Docs},
           mc_connection_man:op_msg(Connection, Msg)
   end.
 
@@ -100,14 +100,14 @@ update(Connection, Coll, Selector, Doc, Upsert, MultiUpdate, WC) ->
                                   <<"multi">> => MultiUpdate}],
                                <<"writeConcern">>, WC});
       false -> 
-          Msg = #op_msg{command = update,
-                        collection = Coll,
-                        extra_fields = [{<<"writeConcern">>, WC}],
-                        documents_name = updates,
-                        documents = [#{<<"q">> => Selector,
-                                       <<"u">> => Converted,
-                                       <<"upsert">> => Upsert,
-                                       <<"multi">> => MultiUpdate}]},
+          Msg = #op_msg_write_op{command = update,
+                                 collection = Coll,
+                                 extra_fields = [{<<"writeConcern">>, WC}],
+                                 documents_name = updates,
+                                 documents = [#{<<"q">> => Selector,
+                                                <<"u">> => Converted,
+                                                <<"upsert">> => Upsert,
+                                                <<"multi">> => MultiUpdate}]},
           mc_connection_man:op_msg(Connection, Msg)
   end.
 
@@ -130,12 +130,12 @@ delete_limit(Connection, Coll, Selector, N) ->
           command(Connection, {<<"delete">>, Coll, <<"deletes">>,
                                [#{<<"q">> => Selector, <<"limit">> => N}]});
       false -> 
-          Msg = #op_msg{command = delete,
-                        collection = Coll,
-                        extra_fields = [{<<"writeConcern">>, {<<"w">>, 1}}],
-                        documents_name = <<"deletes">>,
-                        documents = [#{<<"q">> => Selector,
-                                       <<"limit">> => 1}]},
+          Msg = #op_msg_write_op{command = delete,
+                                 collection = Coll,
+                                 extra_fields = [{<<"writeConcern">>, {<<"w">>, 1}}],
+                                 documents_name = <<"deletes">>,
+                                 documents = [#{<<"q">> => Selector,
+                                                <<"limit">> => 1}]},
           mc_connection_man:op_msg(Connection, Msg)
   end.
 
@@ -247,32 +247,72 @@ ensure_index(Connection, Coll, IndexSpec) ->
 command(Connection, Query) when is_record(Query, query) ->
   Doc = mc_connection_man:read_one(Connection, Query),
   mc_connection_man:process_reply(Doc, Query);
-command(Connection, Command) ->
-  command(Connection,
-    #'query'{
-      collection = <<"$cmd">>,
-      selector = Command
-    }).
+command(Connection, Command) when is_tuple(Command) ->
+  case mc_utils:use_legacy_protocol() of
+      true -> 
+          erlang:display(legactyyyyyyyy_command),
+          command(Connection,
+                  #'query'{
+                     collection = <<"$cmd">>,
+                     selector = Command
+                    });
+      false ->
+          command(Connection, bson:fields(Command))
+  end;
+command(Connection, Command) when is_list(Command) ->
+  case mc_utils:use_legacy_protocol() of
+      true -> 
+          command(Connection, bson:document(Command));
+      false ->
+          Msg = #op_msg_command{command_doc = fix_command_obj_list(Command)},
+          mc_connection_man:op_msg(Connection, Msg)
+  end;
+command(Connection, Command) when is_map(Command) ->
+    command(Connection, maps:to_list(Command)).
+
+fix_command_obj_list(Map) when is_map(Map) ->
+    fix_command_obj_list(maps:to_list(Map));
+fix_command_obj_list(Tuple) when is_tuple(Tuple) ->
+    fix_command_obj_list(bson:fields(Tuple));
+fix_command_obj_list(List) when is_list(List) ->
+    %% we have to try to figure out what the command field is and put it first as the command field need to go first
+    List.
 
 command(Connection, Command, _IsSlaveOk = true) ->
-  command(Connection,
-    #'query'{
-      collection = <<"$cmd">>,
-      selector = Command,
-      slaveok = true,
-      sok_overriden = true
-    });
+    case mc_utils:use_legacy_protocol() of
+        true -> 
+            erlang:display(legactyyyyyyyy_command),
+            command(Connection,
+                    #'query'{
+                       collection = <<"$cmd">>,
+                       selector = Command,
+                       slaveok = true,
+                       sok_overriden = true
+                      });
+        false ->
+            Command = fix_command_obj_list(Command),
+            %% secondaryPreferred seems to correspond to slaveok in the new protocol
+            CommandExtened = Command ++ [{<<"$readPreference">>, <<"secondaryPreferred">>}],
+            command(Connection, CommandExtened)
+    end;
 command(Connection, Command, _IsSlaveOk = false) ->
   command(Connection, Command).
 
 %% @doc Execute MongoDB command in this thread
 -spec sync_command(port(), binary(), mc_worker_api:selector(), module()) -> {boolean(), map()}.
 sync_command(Socket, Database, Command, SetOpts) ->
-  Doc = mc_connection_man:read_one_sync(Socket, Database, #'query'{
-    collection = <<"$cmd">>,
-    selector = Command
-  }, SetOpts),
-  mc_connection_man:process_reply(Doc, Command).
+    case mc_utils:use_legacy_protocol() of
+        true -> 
+            Doc = mc_connection_man:read_one_sync(Socket, Database, #'query'{
+                                                                       collection = <<"$cmd">>,
+                                                                       selector = Command
+                                                                      }, SetOpts),
+            mc_connection_man:process_reply(Doc, Command);
+        false ->
+            Request = #op_msg_command{command_doc = fix_command_obj_list(Command)},
+            Doc = mc_connection_man:op_msg_sync(Socket, Database, Request, SetOpts),
+            mc_connection_man:process_reply(Doc, Command)
+    end.
 
 -spec prepare(tuple() | list() | map(), fun()) -> list().
 prepare(Docs, AssignFun) when is_tuple(Docs) -> %bson
