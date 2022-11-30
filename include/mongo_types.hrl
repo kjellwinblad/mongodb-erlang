@@ -38,4 +38,7 @@
 -type option() :: {timeout, timeout()} | {ssl, boolean()} | ssl | {database, database()} | {read_mode, read_mode()} | {write_mode, write_mode()}.
 -type cursor() :: pid().
 -type query() :: #query{}.
+-type op_msg_command() :: #query{}.
+-type op_msg_write_op() :: #query{}.
+-type op_msg_response() :: #query{}.
 -endif.

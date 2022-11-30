@@ -31,9 +31,9 @@
   count/4,
   count/2]).
 -export([
-  command/2,
-  command/3,
-  sync_command/4,
+  command/2,%DONE
+  command/3,%DONE
+  sync_command/4,%DONE? (not tested at all)
   ensure_index/3,
   prepare/2]).
 
@@ -155,16 +155,40 @@ find_one(Connection, Coll, Selector) ->
 %% @doc Return first selected document, if any
 -spec find_one(pid(), colldb(), selector(), map()) -> map() | undefined.
 find_one(Connection, Coll, Selector, Args) ->
-  Projector = maps:get(projector, Args, #{}),
-  Skip = maps:get(skip, Args, 0),
-  ReadPref = maps:get(readopts, Args, #{<<"mode">> => <<"primary">>}),
-  find_one(Connection,
-    #'query'{
-      collection = Coll,
-      selector = mongoc:append_read_preference(Selector, ReadPref),
-      projector = Projector,
-      skip = Skip
-    }).
+      Projector = maps:get(projector, Args, #{}),
+      Skip = maps:get(skip, Args, 0),
+      ReadPref = maps:get(readopts, Args, #{<<"mode">> => <<"primary">>}),
+      case mc_utils:use_legacy_protocol() of
+          true -> 
+              SelectorWithReadPref = mongoc:append_read_preference(Selector, ReadPref),
+              find_one(Connection,
+                       #'query'{
+                          collection = Coll,
+                          selector = SelectorWithReadPref,
+                          projector = Projector,
+                          skip = Skip
+                         });
+          false -> 
+              CommandDoc = [
+                                {<<"find">>, Coll},
+                                {<<"$readPreference">>, ReadPref},
+                                {<<"filter">>, Selector},
+                                {<<"projection">>, Projector},
+                                {<<"skip">>, Skip},
+                                {<<"batchSize">>, 1},
+                                {<<"singleBatch">>, true} %% Close cursor after first batch
+                                        
+                           ],
+              Res = mc_connection_man:op_msg(Connection,
+                                             #'op_msg_command'{
+                                                command_doc = CommandDoc
+                                               }),
+              erlang:display({res, Res}),
+              case Res of
+                  {true, #{<<"cursor">> := #{<<"firstBatch">> := [Doc]}}} -> Doc;
+                  _ -> undefined
+              end
+    end.
 
 -spec find_one(pid() | atom(), query()) -> map() | undefined.
 find_one(Connection, Query) when is_record(Query, query) ->
@@ -292,7 +316,7 @@ command(Connection, Command, _IsSlaveOk = true) ->
         false ->
             Command = fix_command_obj_list(Command),
             %% secondaryPreferred seems to correspond to slaveok in the new protocol
-            CommandExtened = Command ++ [{<<"$readPreference">>, <<"secondaryPreferred">>}],
+            CommandExtened = Command ++ [{<<"$readPreference">>, #{<<"mode">> => <<"secondaryPreferred">>}}],
             command(Connection, CommandExtened)
     end;
 command(Connection, Command, _IsSlaveOk = false) ->
