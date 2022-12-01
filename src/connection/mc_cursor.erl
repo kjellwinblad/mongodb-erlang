@@ -119,6 +119,7 @@ start(Connection, Collection, Cursor, BatchSize, Batch) ->
 
 %% @hidden
 init([Owner, Connection, Collection, Cursor, BatchSize, Batch]) ->
+    erlang:display({'init([Owner, Connection, Collection, Cursor, BatchSize, Batch', Owner, Connection, Collection, Cursor, BatchSize, Batch}),
     Monitor = erlang:monitor(process, Owner),
     {ok, #state{
             connection = Connection,
@@ -131,6 +132,7 @@ init([Owner, Connection, Collection, Cursor, BatchSize, Batch]) ->
 
 %% @hidden
 handle_call({next, Timeout}, _From, State) ->
+    erlang:display({'handle_call({next, Timeout}', state}),
   case next_i(State, Timeout) of
     {Reply, #state{cursor = 0, batch = []} = UpdatedState} ->
       {stop, normal, Reply, UpdatedState};
@@ -169,6 +171,7 @@ terminate(_, #state{cursor = 0}) -> ok;
 terminate(_, #state{collection = Collection,
                     connection = Connection,
                     cursor = Cursor}) ->
+    erlang:display({terminate}),
     case mc_utils:use_legacy_protocol() of
         true -> 
             gen_server:call(Connection, #killcursor{cursorids = [Cursor]});
@@ -189,8 +192,10 @@ next_i(#state{batch = [Doc | Rest]} = State, _Timeout) ->
 next_i(#state{batch = [], cursor = 0} = State, _Timeout) ->
   {{}, State};
 next_i(#state{batch = []} = State, Timeout) ->
+    erlang:display({request_more, State#state.batchsize}),
     case mc_utils:use_legacy_protocol() of
         true -> 
+            erlang:display({hereeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee}),
             Reply = gen_server:call(
                       State#state.connection,
                       #getmore{
@@ -199,6 +204,7 @@ next_i(#state{batch = []} = State, Timeout) ->
                          cursorid = State#state.cursor
                         },
                       Timeout),
+            erlang:display({yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy,Reply}),
             Cursor = Reply#reply.cursorid,
             Batch = Reply#reply.documents,
             next_i(State#state{cursor = Cursor, batch = Batch}, Timeout);
@@ -207,8 +213,14 @@ next_i(#state{batch = []} = State, Timeout) ->
                 #op_msg_command{command_doc = [{<<"getMore">>, State#state.cursor},
                                                {<<"collection">>, State#state.collection},
                                                {<<"batchSize">>, State#state.batchsize}]},
-            erlang:display(mc_connection_man:request_worker(State#state.connection, GetMoreCommand)),
-            erlang:error(need_to_continue_here)
+                erlang:display({sending, GetMoreCommand}),
+            Result = mc_connection_man:request_worker(State#state.connection, GetMoreCommand),
+            case Result of
+                #{<<"cursor">>:=#{<<"id">>:=NewCursorId,<<"nextBatch">>:=Batch},<<"ok">>:=1.0} ->
+                    next_i(State#state{cursor = NewCursorId, batch = Batch}, Timeout);
+                _ ->
+                    erlang:error({error_unexpected_cursor_result, Result})
+            end
     end.
 
 

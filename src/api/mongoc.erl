@@ -141,18 +141,18 @@ append_read_preference(Selector, RP) ->
 
 
 extract_read_preference(#{<<"$readPreference">> := RP} = Selector) ->
-    {RP, maps:remove(<<"$readPreference">>, maps:get(<<"$query">>, Selector, #{}))};
+    {RP, maps:get(<<"$query">>, Selector, #{})};
 extract_read_preference(Selector) when is_map(Selector) ->
-    {#{<<"mode">> => <<"primary">>}, maps:get(<<"$query">>, Selector, #{})};
+    {#{<<"mode">> => <<"primary">>}, maps:get(<<"$query">>, Selector, #{}), };%TODO also extract orderby and what else might be inside (strange but needed to pass test)
 extract_read_preference(Selector) when is_tuple(Selector) ->
   Fields = bson:fields(Selector),
   Query = case lists:keyfind(<<"$query">>, 1, Fields) of
               {_, Q} -> Q;
               false -> #{}
           end,
-  case lists:keytake(<<"$readPreference">>, 1, Fields) of
-      {value, {_, RP}, NewFields} ->
-          {RP, bson:document(NewFields)};
+  case lists:keyfind(<<"$readPreference">>, 1, Fields) of
+      {_, RP} ->
+          {RP, Query};
       false ->
           {#{<<"mode">> => <<"primary">>}, Query}
   end.

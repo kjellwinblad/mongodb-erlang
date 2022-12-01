@@ -58,14 +58,19 @@ insert_and_find(Config) ->
       <<"league">> => <<"American">>}
   ],
   TeamList = NationalTeams ++ AmericanTeams,
-
-  {{true, _}, Teams} = mc_worker_api:insert(Connection, Collection, TeamList),
+erlang:display({'HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH'}),
+What = mc_worker_api:insert(Connection, Collection, TeamList),
+erlang:display({whatdowie,What}),
+  {{true, _}, Teams} = What, 
+erlang:display({'GGHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH'}),
   4 = mc_worker_api:count(Connection, Collection, #{}),
   {ok, TeamsCur} = mc_worker_api:find(Connection, Collection, #{}),
   TeamsFound = mc_cursor:rest(TeamsCur),
   undefined = process_info(TeamsCur),
+erlang:display({'1GGHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH'}),
   ?assertEqual(Teams, TeamsFound),
 
+erlang:display({'2GGHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH'}),
   {ok, NationalTeamsCur} = mc_worker_api:find(
     Connection, Collection, #{<<"league">> => <<"National">>}, #{projector => #{<<"_id">> => false}}),
   NationalTeamsFound = mc_cursor:rest(NationalTeamsCur),

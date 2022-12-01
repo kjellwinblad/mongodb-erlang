@@ -18,13 +18,16 @@
 %% API
 -export([request_worker/2, process_reply/2]).
 -export([read/2, read_one/2, read_one_sync/4]).
--export([op_msg/2, op_msg_read_one/2]).
+-export([op_msg/2, op_msg_read_one/2, op_msg_raw_result/2]).
 
 -spec read(pid() | atom(), query()) -> [] | pid().
 read(Connection, Request = #'query'{collection = Collection, batchsize = BatchSize}) ->
     read(Connection, Request, Collection, BatchSize);
 read(Connection, #'op_msg_command'{command_doc = ([{_, Collection} | _ ] = Fields)} = Request)  ->
-    BatchSize = lists:keyfind(<<"batchSize">>, 1, Fields),
+    BatchSize = case lists:keyfind(<<"batchSize">>, 1, Fields) of
+                    {_, Size} -> Size;
+                    false -> 101
+                end,
     read(Connection, Request, Collection, BatchSize).
 
 read(Connection, Request, Collection, BatchSize) ->
@@ -45,8 +48,23 @@ read_one(Connection, Request) ->
     [Doc | _] -> Doc
   end.
 
+op_msg_raw_result(Connection, OpMsg) ->
+    Doc = request_worker(Connection, OpMsg),
+    erlang:display({got_answerrrrrrrrrrrrrrrrrrrrrrrrrrr, Doc}),
+    Timeout = mc_utils:get_timeout(),
+    FromServer = gen_server:call(Connection, OpMsg, Timeout),
+    case FromServer of
+        #op_msg_response{response_doc =
+                         (#{<<"ok">> := 1.0} = Res)} ->
+            Res;
+        _ ->
+            erlang:display(whhkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk),
+            erlang:error({error, FromServer})
+    end.
+
 op_msg(Connection, OpMsg) ->
   Doc = request_worker(Connection, OpMsg),
+  erlang:display({got_answerrrrrrrrrrrrrrrrrrrrrrrrrrr, Doc}),
   process_reply(Doc, OpMsg).
 
 op_msg_read_one(Connection, OpMsg) ->
@@ -72,7 +90,9 @@ op_msg_read_one(Connection, OpMsg) ->
 -spec request_worker(pid(), mongo_protocol:message()) -> ok | {non_neg_integer(), [map()]}.
 request_worker(Connection, Request) ->  %request to worker
   Timeout = mc_utils:get_timeout(),
-  reply(gen_server:call(Connection, Request, Timeout)).
+  FromServer = gen_server:call(Connection, Request, Timeout),
+  erlang:display({frommm_server, FromServer, Request}),
+  reply(FromServer).
 
 process_reply(Doc = #{<<"ok">> := N}, _) when is_number(N) ->   %command succeed | failed
   {N == 1, maps:remove(<<"ok">>, Doc)};

@@ -70,8 +70,8 @@ insert(Connection, Coll, Docs, WriteConcern) ->
           Msg = #op_msg_write_op{command = insert,
                                  collection = Coll,
                                  extra_fields = [{<<"writeConcern">>, WriteConcern}],
-                                 documents = Docs},
-          mc_connection_man:op_msg(Connection, Msg)
+                                 documents = Converted},
+          {mc_connection_man:op_msg(Connection, Msg), Converted}
   end.
 
 
@@ -234,6 +234,7 @@ find(Connection, Coll, Selector, Args) ->
 
 -spec find(pid() | atom(), query()) -> {ok, cursor()} | [].
 find(Connection, Query) when is_record(Query, query) ->
+    erlang:display({batchsizeinQ,Query#query.batchsize}),
     FixedQuery =
         case mc_utils:use_legacy_protocol() of
             true -> Query;
@@ -243,6 +244,7 @@ find(Connection, Query) when is_record(Query, query) ->
                          selector = Selector,
                          batchsize = BatchSize,
                          projector = Projector} = Query,
+                erlang:display({Selector}),
                 {ReadPref, NewSelector} = mongoc:extract_read_preference(Selector),
                 %% We might need to do some transformations:
                 %% See: https://github.com/mongodb/specifications/blob/master/source/find_getmore_killcursors_commands.rst#mapping-op-query-behavior-to-the-find-command-limit-and-batchsize-fields
@@ -338,7 +340,7 @@ command(Connection, Command) when is_list(Command) ->
           command(Connection, bson:document(Command));
       false ->
           Msg = #op_msg_command{command_doc = fix_command_obj_list(Command)},
-          mc_connection_man:op_msg(Connection, Msg)
+          {true, mc_connection_man:op_msg_raw_result(Connection, Msg)}
   end;
 command(Connection, Command) when is_map(Command) ->
     command(Connection, maps:to_list(Command)).
