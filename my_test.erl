@@ -12,10 +12,18 @@ main(_) ->
     Database = <<"db">>,
     {ok, Connection} = mc_worker_api:connect ([{database, Database}]),
     Collection = <<"test_coll">>,
-    show(find_old,mc_worker_api:find(Connection, Collection, #{})),
-    show(find_one_new,mc_worker_api:find_one(Connection, Collection, #{<<"_id">> => 5})),
+    show(find_old, {ok, Cursor} = mc_worker_api:find(Connection, Collection, #{})),
+    Loop = fun Loop(Cursor) ->
+            case mc_cursor:next(Cursor) of
+                error ->erlang:display({stop});
+                V -> erlang:display({got, V}), Loop(Cursor)
+            end
+    end,
+    Loop(Cursor),
     application:set_env(mongodb, use_legacy_protocol, false),
-    show(find_new,mc_worker_api:find(Connection, Collection, #{})),
+    % show(find_one_new,mc_worker_api:find_one(Connection, Collection, #{<<"_id">> => 5})),
+    show(find_new,{ok, NewCursor} = mc_worker_api:find(Connection, Collection, #{})),
+    Loop(NewCursor),
     ok.
     %show(use_legacy_protocol,application:get_env(mongodb, use_legacy_protocol)),
     %%%timer:sleep(10000),

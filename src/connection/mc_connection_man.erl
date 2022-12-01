@@ -18,7 +18,7 @@
 %% API
 -export([request_worker/2, process_reply/2]).
 -export([read/2, read_one/2, read_one_sync/4]).
--export([op_msg/2]).
+-export([op_msg/2, op_msg_read_one/2]).
 
 -spec read(pid() | atom(), query()) -> [] | pid().
 read(Connection, Request = #'query'{collection = Collection, batchsize = BatchSize}) ->
@@ -48,6 +48,26 @@ read_one(Connection, Request) ->
 op_msg(Connection, OpMsg) ->
   Doc = request_worker(Connection, OpMsg),
   process_reply(Doc, OpMsg).
+
+op_msg_read_one(Connection, OpMsg) ->
+  Timeout = mc_utils:get_timeout(),
+  Response = gen_server:call(Connection, OpMsg, Timeout),
+  case Response of
+      #op_msg_response{response_doc =
+                        #{<<"ok">> := 1.0,
+                           <<"cursor">>:=
+                               #{<<"firstBatch">>:=[Doc],
+                                 <<"id">>:=0}
+                         }} ->
+          Doc;
+      #op_msg_response{response_doc =
+                       #{<<"ok">> := 1.0}} ->
+                          undefined;
+      #op_msg_response{response_doc = Doc} ->
+          erlang:error({error, Doc});
+      _ ->
+          erlang:error({error_unexpected_response, Response})
+  end.
 
 -spec request_worker(pid(), mongo_protocol:message()) -> ok | {non_neg_integer(), [map()]}.
 request_worker(Connection, Request) ->  %request to worker

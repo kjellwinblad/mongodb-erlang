@@ -176,19 +176,15 @@ find_one(Connection, Coll, Selector, Args) ->
                                 {<<"projection">>, Projector},
                                 {<<"skip">>, Skip},
                                 {<<"batchSize">>, 1},
+                                {<<"limit">>, 1},
                                 {<<"singleBatch">>, true} %% Close cursor after first batch
                                         
                            ],
-              Res = mc_connection_man:op_msg(Connection,
-                                             #'op_msg_command'{
-                                                command_doc = CommandDoc
-                                               }),
-              erlang:display({res, Res}),
-              case Res of
-                  {true, #{<<"cursor">> := #{<<"firstBatch">> := [Doc]}}} -> Doc;
-                  _ -> undefined
-              end
-    end.
+              mc_connection_man:op_msg_read_one(Connection,
+                                                #'op_msg_command'{
+                                                   command_doc = CommandDoc
+                                                  })
+      end.
 
 -spec find_one(pid() | atom(), query()) -> map() | undefined.
 find_one(Connection, Query) when is_record(Query, query) ->
@@ -248,16 +244,30 @@ find(Connection, Query) when is_record(Query, query) ->
                          batchsize = BatchSize,
                          projector = Projector} = Query,
                 {ReadPref, NewSelector} = mongoc:extract_read_preference(Selector),
+                %% We might need to do some transformations:
+                %% See: https://github.com/mongodb/specifications/blob/master/source/find_getmore_killcursors_commands.rst#mapping-op-query-behavior-to-the-find-command-limit-and-batchsize-fields
+                SingleBatch = BatchSize < 0,
+                BatchSize2 = erlang:abs(BatchSize),
+                BatchSizeField =
+                    case BatchSize2 =:= 0 of
+                        true -> [];
+                        false -> [{<<"batchSize">>, BatchSize2}] 
+                    end,
+                SingleBatchField =
+                    case SingleBatch of
+                        true -> [];
+                        false -> [{<<"singleBatch">>, SingleBatch}] 
+                    end,
                 CommandDoc = [
                               {<<"find">>, Coll},
                               {<<"$readPreference">>, ReadPref},
                               {<<"filter">>, NewSelector},
                               {<<"projection">>, Projector},
-                              {<<"skip">>, Skip},
-                              {<<"batchSize">>, BatchSize}
-                             ],
+                              {<<"skip">>, Skip}
+                             ] ++ BatchSizeField
+                               ++ SingleBatchField,
                 erlang:display(CommandDoc),
-                #op_msg_command{command_doc=CommandDoc} 
+                #op_msg_command{command_doc = CommandDoc} 
         end,
   case mc_connection_man:read(Connection, FixedQuery) of
     [] -> [];
