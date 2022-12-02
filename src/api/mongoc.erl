@@ -141,20 +141,29 @@ append_read_preference(Selector, RP) ->
 
 
 extract_read_preference(#{<<"$readPreference">> := RP} = Selector) ->
-    {RP, maps:get(<<"$query">>, Selector, #{})};
+   erlang:display({orderbyg_field, maps:get(<<"$orderby">>, Selector, #{})}) ,
+    {RP,
+     maps:get(<<"$query">>, Selector, #{}),
+     maps:get(<<"$orderby">>, Selector, #{})};
 extract_read_preference(Selector) when is_map(Selector) ->
-    {#{<<"mode">> => <<"primary">>}, maps:get(<<"$query">>, Selector, #{}), };%TODO also extract orderby and what else might be inside (strange but needed to pass test)
+    {#{<<"mode">> => <<"primary">>},
+     maps:get(<<"$query">>, Selector, #{}),
+     maps:get(<<"$orderby">>, Selector, #{})};%TODO also extract orderby and what else might be inside (strange but needed to pass test)
 extract_read_preference(Selector) when is_tuple(Selector) ->
   Fields = bson:fields(Selector),
   Query = case lists:keyfind(<<"$query">>, 1, Fields) of
               {_, Q} -> Q;
               false -> #{}
           end,
+  OrderBy = case lists:keyfind(<<"$orderby">>, 1, Fields) of
+              {_, OB} -> OB;
+              false -> #{}
+          end,
   case lists:keyfind(<<"$readPreference">>, 1, Fields) of
       {_, RP} ->
-          {RP, Query};
+          {RP, Query, OrderBy};
       false ->
-          {#{<<"mode">> => <<"primary">>}, Query}
+          {#{<<"mode">> => <<"primary">>}, Query, OrderBy}
   end.
 
 %%%===================================================================

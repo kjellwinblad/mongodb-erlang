@@ -263,10 +263,11 @@ find_sort_skip_limit_test(Config) ->
     #{<<"key">> => <<"testF">>, <<"value">> => <<"valF">>, <<"tag">> => 15},
     #{<<"key">> => <<"testG">>, <<"value">> => <<"valG">>, <<"tag">> => 16}
   ]),
-
+erlang:display({'>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> inserted'}),
   Selector = #{<<"$query">> => {}, <<"$orderby">> => #{<<"tag">> => -1}},
   Args = #{batchsize => 5, skip => 10},
-  {ok, C} = mc_worker_api:find(Connection, Collection, Selector, Args),
+erlang:display({'2 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> before find'}),
+  {ok, C} = show(mc_worker_api:find(Connection, Collection, Selector, Args)),
 
   [
     #{<<"key">> := <<"test6">>, <<"value">> := <<"val6">>, <<"tag">> := 6},
@@ -274,11 +275,13 @@ find_sort_skip_limit_test(Config) ->
     #{<<"key">> := <<"test4">>, <<"value">> := <<"val4">>, <<"tag">> := 4},
     #{<<"key">> := <<"test3">>, <<"value">> := <<"val3">>, <<"tag">> := 3},
     #{<<"key">> := <<"test2">>, <<"value">> := <<"val2">>, <<"tag">> := 2}
-  ] = mc_cursor:next_batch(C),
+  ] = show(mc_cursor:next_batch(C)),
   mc_cursor:close(C),
 
   Config.
-
+show(X) ->
+    erlang:display({show, X}),
+    X.
 update(Config) ->
   Connection = ?config(connection, Config),
   Collection = ?config(collection, Config),

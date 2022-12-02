@@ -31,14 +31,15 @@ read(Connection, #'op_msg_command'{command_doc = ([{_, Collection} | _ ] = Field
     read(Connection, Request, Collection, BatchSize).
 
 read(Connection, Request, Collection, BatchSize) ->
-  case request_worker(Connection, Request) of
-    {_, []} ->
-      [];
-    {Cursor, Batch} ->
-      erlang:display({got_here_with, {Cursor, Batch}}),
-      mc_cursor:start(Connection, Collection, Cursor, BatchSize, Batch);
-      X -> erlang:display({xxxxxxxxxxxxxxxxxx, X})
-  end.
+    case request_worker(Connection, Request) of
+        {_, []} ->
+            [];
+        {Cursor, Batch} ->
+            erlang:display({got_here_with, {Cursor, Batch}}),
+            mc_cursor:start(Connection, Collection, Cursor, BatchSize, Batch);
+        X ->
+            erlang:display({xxxxxxxxxxxxxxxxxx, X})
+    end.
 
 -spec read_one(pid() | atom(), query()) -> undefined | map().
 read_one(Connection, Request) ->

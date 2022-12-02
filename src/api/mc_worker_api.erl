@@ -245,7 +245,7 @@ find(Connection, Query) when is_record(Query, query) ->
                          batchsize = BatchSize,
                          projector = Projector} = Query,
                 erlang:display({Selector}),
-                {ReadPref, NewSelector} = mongoc:extract_read_preference(Selector),
+                {ReadPref, NewSelector, OrderBy} = mongoc:extract_read_preference(Selector),
                 %% We might need to do some transformations:
                 %% See: https://github.com/mongodb/specifications/blob/master/source/find_getmore_killcursors_commands.rst#mapping-op-query-behavior-to-the-find-command-limit-and-batchsize-fields
                 SingleBatch = BatchSize < 0,
@@ -260,15 +260,23 @@ find(Connection, Query) when is_record(Query, query) ->
                         true -> [];
                         false -> [{<<"singleBatch">>, SingleBatch}] 
                     end,
+                SortField =
+                    case OrderBy of
+                        M when is_map(M) and map_size(M) =:= 0 ->
+                            [];
+                        _ ->
+                            [{<<"sort">>, OrderBy}] 
+                    end,
                 CommandDoc = [
                               {<<"find">>, Coll},
                               {<<"$readPreference">>, ReadPref},
                               {<<"filter">>, NewSelector},
                               {<<"projection">>, Projector},
                               {<<"skip">>, Skip}
-                             ] ++ BatchSizeField
+                             ] ++ SortField
+                               ++ BatchSizeField
                                ++ SingleBatchField,
-                erlang:display(CommandDoc),
+                erlang:display({thisisittTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT, CommandDoc}),
                 #op_msg_command{command_doc = CommandDoc} 
         end,
   case mc_connection_man:read(Connection, FixedQuery) of
@@ -297,12 +305,26 @@ count(Connection, Query) ->
   {true, #{<<"n">> := N}} = command(Connection, Query),
   trunc(N). % Server returns count as float
 
-%% @doc Create index on collection according to given spec.
+%% @doc Create index on collection according to given spec. This function does
+%% not work if you have configured the driver to use the new version of the
+%% protocol with application:set_env(mongodb, use_legacy_protocol, false). In
+%% that case you can call the createIndexes
+%% (https://www.mongodb.com/docs/manual/reference/command/createIndexes/#mongodb-dbcommand-dbcmd.createIndexes)
+%% command using the `mc_worker_api:command/2` function instead. 
+%%
 %%      The key specification is a bson documents with the following fields:
 %%      IndexSpec      :: bson document, for e.g. {field, 1, other, -1, location, 2d}, <strong>required</strong>
 -spec ensure_index(pid(), colldb(), bson:document()) -> ok | {error, any()}.
 ensure_index(Connection, Coll, IndexSpec) ->
-  mc_connection_man:request_worker(Connection, #ensure_index{collection = Coll, index_spec = IndexSpec}).
+    case mc_utils:use_legacy_protocol() of
+        true ->
+            mc_connection_man:request_worker(Connection,
+                                             #ensure_index{collection = Coll,
+                                                           index_spec = IndexSpec});
+        false -> 
+           erlang:error({error, <<"This function does not work when one have specified application:set_env(mongodb, use_legacy_protocol, false). Call the createIndexes command using mc_worker_api:command/2 instead.">>}) 
+    end.
+
 
 
 
