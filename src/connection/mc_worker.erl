@@ -102,7 +102,6 @@ handle_cast(_, State) ->
 %% @hidden
 handle_info({Net, _Socket, Data}, State = #state{request_storage = RequestStorage}) when Net =:= tcp; Net =:= ssl ->
   Buffer = <<(State#state.buffer)/binary, Data/binary>>,
-  %%io:format("RESPONSE: ~s\n", [Buffer]),
   {Responses, Pending} = mc_worker_logic:decode_responses(Buffer),
   UReqStor = mc_worker_logic:process_responses(Responses, RequestStorage),
   UState = need_hibernate(byte_size(Buffer), State),

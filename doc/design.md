@@ -19,13 +19,13 @@ With var it is now very easy to create objects that protect a shared resource or
 
 Every read/write operation may throw a DB exception. Furthermore, every read/write operation requires a DB context that includes the connection to use, the database to access, whether slave is ok (read_mode), and whether to confirm writes (write_mode). We group a series of read/write operations that perform a single high-level task into a function called a *DB action*. We then execute the action within a single exception handler and with a single DB context in dynamic scope (using Erlang's process dictionary). `mongo:do (write_mode(), read_mode(), connection(), db(), action(A)) -> {ok, A} | {failure, failure()}` sets up the context, runs the action, and catches and returns any DB failure. Note, it will not catch and return other types of exceptions like programming errors.
 
-    You may notice that a DB action is analogous to a DB transaction for a relational database in that the action aborts when one of its operations fails. However, for scalability reasons, MongoDB does not support ACID across multiple read/write operations, so the operations before the failed operation remain in effect. Your failure handler must be prepared to recover from this intermediate state. If your DB action is conceptually a single high-level task, then it should not be to hard to undo and redo that task even from an intermediate state.
+You may notice that a DB action is analogous to a DB transaction for a relational database in that the action aborts when one of its operations fails. However, for scalability reasons, MongoDB does not support ACID across multiple read/write operations, so the operations before the failed operation remain in effect. Your failure handler must be prepared to recover from this intermediate state. If your DB action is conceptually a single high-level task, then it should not be to hard to undo and redo that task even from an intermediate state.
 
 ### Documentation
 
 Detailed documentation with examples can be found in the ReadMe's of the two libraries, [mongodb](http://github.com/mongodb/mongodb-erlang) and [bson](http://github.com/mongodb/bson-erlang), and in their source code comments and test modules.
 
-    In addition recent docuemenation on the API will be avaliable on the [mongodb website](http://api.mongodb.org/erlang/mongodb/).
+In addition recent docuemenation on the API will be avaliable on the [mongodb website](http://api.mongodb.org/erlang/mongodb/).
 
 Should you wish to generate this from the latest code, you can run:
 

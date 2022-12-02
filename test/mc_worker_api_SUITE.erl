@@ -58,8 +58,8 @@ insert_and_find(Config) ->
       <<"league">> => <<"American">>}
   ],
   TeamList = NationalTeams ++ AmericanTeams,
-What = mc_worker_api:insert(Connection, Collection, TeamList),
-  {{true, _}, Teams} = What, 
+
+  {{true, _}, Teams} = mc_worker_api:insert(Connection, Collection, TeamList),
   4 = mc_worker_api:count(Connection, Collection, #{}),
   {ok, TeamsCur} = mc_worker_api:find(Connection, Collection, #{}),
   TeamsFound = mc_cursor:rest(TeamsCur),
@@ -258,6 +258,7 @@ find_sort_skip_limit_test(Config) ->
     #{<<"key">> => <<"testF">>, <<"value">> => <<"valF">>, <<"tag">> => 15},
     #{<<"key">> => <<"testG">>, <<"value">> => <<"valG">>, <<"tag">> => 16}
   ]),
+
   Selector = #{<<"$query">> => {}, <<"$orderby">> => #{<<"tag">> => -1}},
   Args = #{batchsize => 5, skip => 10},
   {ok, C} = mc_worker_api:find(Connection, Collection, Selector, Args),
@@ -270,6 +271,7 @@ find_sort_skip_limit_test(Config) ->
     #{<<"key">> := <<"test2">>, <<"value">> := <<"val2">>, <<"tag">> := 2}
   ] = mc_cursor:next_batch(C),
   mc_cursor:close(C),
+
   Config.
 
 update(Config) ->

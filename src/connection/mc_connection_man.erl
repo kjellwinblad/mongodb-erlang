@@ -116,11 +116,11 @@ reply(#reply{cursornotfound = true, queryerror = false} = Reply) ->
 reply({error, Error}) ->
   process_error(error, Error);
 reply(#op_msg_response{response_doc = (#{<<"cursor">>:=#{<<"firstBatch">>:=Batch,<<"id">>:=Id}} = Doc)}) when map_get(<<"ok">>, Doc) == 1 -> 
-    {Id, Batch};
+  {Id, Batch};
 reply(#op_msg_response{response_doc = Document}) when map_get(<<"ok">>, Document) == 1 ->
-    Document;
+  Document;
 reply(Resp) ->
-    erlang:error({error_cannot_parse_response, Resp}).
+  erlang:error({error_cannot_parse_response, Resp}).
 
 %% @private
 -spec process_error(atom() | integer(), term()) -> no_return().

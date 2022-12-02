@@ -54,7 +54,6 @@
   documents = [] :: any()
 }).
 
-%% New form of command
 -record(op_msg_response, {
   response_doc :: map()
 }).

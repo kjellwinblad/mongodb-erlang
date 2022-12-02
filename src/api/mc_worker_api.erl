@@ -9,31 +9,31 @@
 -export([
   connect/1,
   disconnect/1,
-  insert/3,%DONE
-  update/4,%DONE
-  update/6,%DONE
-  delete/3,%DONE
-  delete_one/3,%DONE
-  delete_limit/4,%DONE
-  insert/4,%DONE
-  update/7,%DONE
-  delete_limit/5]).%DONE
+  insert/3,
+  update/4,
+  update/6,
+  delete/3,
+  delete_one/3,
+  delete_limit/4,
+  insert/4,
+  update/7,
+  delete_limit/5]).
 
 -export([
-  find_one/3,%DONE
-  find_one/4,%DONE
+  find_one/3,
+  find_one/4,
   find/3,
   find/4,
   find/2,
-  find_one/2]).%DONE
+  find_one/2]).
 -export([
-  count/3,%DONE
-  count/4,%DONE
-  count/2]).%DONE
+  count/3,
+  count/4,
+  count/2]).
 -export([
-  command/2,%DONE
-  command/3,%DONE
-  sync_command/4,%DONE? (not tested at all)
+  command/2,
+  command/3,
+  sync_command/4,
   ensure_index/3,
   prepare/2]).
 
@@ -318,20 +318,6 @@ ensure_index(Connection, Coll, IndexSpec) ->
         false -> 
            erlang:error({error, <<"This function does not work when one have specified application:set_env(mongodb, use_legacy_protocol, false). Call the createIndexes command using mc_worker_api:command/2 instead.">>}) 
     end.
-
-
-
-
-% insert_msg_op(Connection, Collection, WriteConcern, Documents) ->
-%     % Payload = {<<"insert">>, Collection,
-%     %            <<"$db">>, <<"notset">>,
-%     %            <<"writeConcern">>, WriteConcern,
-%     %            <<"documents">>, Documents},
-%     Msg = #op_msg{command = insert,
-%                   collection = Collection,
-%                   extra_fields = bson:document([{<<"writeConcern">>, WriteConcern}]),
-%                   documents = Documents},
-%     mc_connection_man:op_msg(Connection, Msg).
 
 %% @doc Execute given MongoDB command and return its result.
 -spec command(pid(), mc_worker_api:selector()) -> {boolean(), map()}. % Action
