@@ -5,7 +5,7 @@
 
 -include("mongo_protocol.hrl").
 
-
+-compile(nowarn_export_all).
 -compile(export_all).
 
 all() ->
@@ -58,19 +58,14 @@ insert_and_find(Config) ->
       <<"league">> => <<"American">>}
   ],
   TeamList = NationalTeams ++ AmericanTeams,
-erlang:display({'HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH'}),
 What = mc_worker_api:insert(Connection, Collection, TeamList),
-erlang:display({whatdowie,What}),
   {{true, _}, Teams} = What, 
-erlang:display({'GGHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH'}),
   4 = mc_worker_api:count(Connection, Collection, #{}),
   {ok, TeamsCur} = mc_worker_api:find(Connection, Collection, #{}),
   TeamsFound = mc_cursor:rest(TeamsCur),
   undefined = process_info(TeamsCur),
-erlang:display({'1GGHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH'}),
   ?assertEqual(Teams, TeamsFound),
 
-erlang:display({'2GGHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH'}),
   {ok, NationalTeamsCur} = mc_worker_api:find(
     Connection, Collection, #{<<"league">> => <<"National">>}, #{projector => #{<<"_id">> => false}}),
   NationalTeamsFound = mc_cursor:rest(NationalTeamsCur),
@@ -263,11 +258,9 @@ find_sort_skip_limit_test(Config) ->
     #{<<"key">> => <<"testF">>, <<"value">> => <<"valF">>, <<"tag">> => 15},
     #{<<"key">> => <<"testG">>, <<"value">> => <<"valG">>, <<"tag">> => 16}
   ]),
-erlang:display({'>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> inserted'}),
   Selector = #{<<"$query">> => {}, <<"$orderby">> => #{<<"tag">> => -1}},
   Args = #{batchsize => 5, skip => 10},
-erlang:display({'2 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> before find'}),
-  {ok, C} = show(mc_worker_api:find(Connection, Collection, Selector, Args)),
+  {ok, C} = mc_worker_api:find(Connection, Collection, Selector, Args),
 
   [
     #{<<"key">> := <<"test6">>, <<"value">> := <<"val6">>, <<"tag">> := 6},
@@ -275,13 +268,10 @@ erlang:display({'2 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     #{<<"key">> := <<"test4">>, <<"value">> := <<"val4">>, <<"tag">> := 4},
     #{<<"key">> := <<"test3">>, <<"value">> := <<"val3">>, <<"tag">> := 3},
     #{<<"key">> := <<"test2">>, <<"value">> := <<"val2">>, <<"tag">> := 2}
-  ] = show(mc_cursor:next_batch(C)),
+  ] = mc_cursor:next_batch(C),
   mc_cursor:close(C),
-
   Config.
-show(X) ->
-    erlang:display({show, X}),
-    X.
+
 update(Config) ->
   Connection = ?config(connection, Config),
   Collection = ?config(collection, Config),

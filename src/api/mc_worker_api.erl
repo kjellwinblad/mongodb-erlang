@@ -60,7 +60,6 @@ insert(Connection, Coll, Docs, WriteConcern) ->
   Converted = prepare(Docs, fun assign_id/1),
   case mc_utils:use_legacy_protocol() of
       true -> 
-          erlang:display(legactyyyyyyyy),
           {command(Connection, 
                    {<<"insert">>, Coll,
                     <<"documents">>, Converted,
@@ -92,7 +91,6 @@ update(Connection, Coll, Selector, Doc, Upsert, MultiUpdate, WC) ->
   Converted = prepare(Doc, fun(D) -> D end),
   case mc_utils:use_legacy_protocol() of
       true -> 
-          erlang:display(legactyyyyyyyy_update),
           command(Connection, {<<"update">>, Coll, <<"updates">>,
                                [#{<<"q">> => Selector,
                                   <<"u">> => Converted,
@@ -126,7 +124,6 @@ delete_one(Connection, Coll, Selector) ->
 delete_limit(Connection, Coll, Selector, N) ->
   case mc_utils:use_legacy_protocol() of
       true -> 
-          erlang:display(legactyyyyyyyy_delete),
           command(Connection, {<<"delete">>, Coll, <<"deletes">>,
                                [#{<<"q">> => Selector, <<"limit">> => N}]});
       false -> 
@@ -234,7 +231,6 @@ find(Connection, Coll, Selector, Args) ->
 
 -spec find(pid() | atom(), query()) -> {ok, cursor()} | [].
 find(Connection, Query) when is_record(Query, query) ->
-    erlang:display({batchsizeinQ,Query#query.batchsize}),
     FixedQuery =
         case mc_utils:use_legacy_protocol() of
             true -> Query;
@@ -244,7 +240,6 @@ find(Connection, Query) when is_record(Query, query) ->
                          selector = Selector,
                          batchsize = BatchSize,
                          projector = Projector} = Query,
-                erlang:display({Selector}),
                 {ReadPref, NewSelector, OrderBy} = mongoc:extract_read_preference(Selector),
                 %% We might need to do some transformations:
                 %% See: https://github.com/mongodb/specifications/blob/master/source/find_getmore_killcursors_commands.rst#mapping-op-query-behavior-to-the-find-command-limit-and-batchsize-fields
@@ -276,7 +271,6 @@ find(Connection, Query) when is_record(Query, query) ->
                              ] ++ SortField
                                ++ BatchSizeField
                                ++ SingleBatchField,
-                erlang:display({thisisittTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT, CommandDoc}),
                 #op_msg_command{command_doc = CommandDoc} 
         end,
   case mc_connection_man:read(Connection, FixedQuery) of
@@ -347,7 +341,6 @@ command(Connection, Query) when is_record(Query, query) ->
 command(Connection, Command) when is_tuple(Command) ->
   case mc_utils:use_legacy_protocol() of
       true -> 
-          erlang:display(legactyyyyyyyy_command),
           command(Connection,
                   #'query'{
                      collection = <<"$cmd">>,
@@ -378,7 +371,6 @@ fix_command_obj_list(List) when is_list(List) ->
 command(Connection, Command, _IsSlaveOk = true) ->
     case mc_utils:use_legacy_protocol() of
         true -> 
-            erlang:display(legactyyyyyyyy_command),
             command(Connection,
                     #'query'{
                        collection = <<"$cmd">>,

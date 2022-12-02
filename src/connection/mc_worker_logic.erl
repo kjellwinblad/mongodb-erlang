@@ -127,13 +127,6 @@ process_write_response(From) ->
 
 process_op_msg_response(From) ->
   fun(#op_msg_response{} = OpMsg) ->
-          %erlang:display({xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, Doc}),
-          % F = fun(ErrorField, ok) when is_map_key(ErrorField, Doc) ->
-          %             {error, Doc};
-          %        (_, ok) ->
-          %             Doc
-          %     end,
-          % Response = lists:foldl(F, ok, [<<"writeErrors">>, <<"writeConcernError">>]),
           gen_server:reply(From, OpMsg)
   end.
 

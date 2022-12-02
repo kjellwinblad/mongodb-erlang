@@ -24,6 +24,7 @@
 % RequestId expected to be in scope at call site
 -define(put_header(Opcode), ?put_int32(_RequestId), ?put_int32(0), ?put_int32(Opcode)).
 -define(get_header(Opcode, ResponseTo), ?get_int32(_RequestId), ?get_int32(ResponseTo), ?get_int32(Opcode)).
+-define(get_header_ignore_req_id(Opcode, ResponseTo), ?get_int32(_), ?get_int32(ResponseTo), ?get_int32(Opcode)).
 
 -define(ReplyOpcode, 1).
 -define(UpdateOpcode, 2001).
@@ -35,6 +36,12 @@
 -define(OpMsgOpcode, 2013).
 
 -define(OpMsgDbFieldIndex, 4).
+
+-define (put_uint32 (N), (N):32/unsigned-little).
+-define (put_uint8 (N), (N):8/unsigned-little).
+-define (get_uint32 (N), N:32/unsigned-little).
+-define (get_uint8 (N), N:8/unsigned-little).
+
 
 -spec dbcoll(database(), colldb()) -> bson:utf8().
 
@@ -130,7 +137,7 @@ put_section_type_zero(#op_msg_write_op{
 
 -spec get_reply(binary()) -> {requestid(), reply(), binary()}.
 get_reply(<<?get_header(?ReplyOpcode, _), _/binary>> = Message) ->
-  <<?get_header(?ReplyOpcode, ResponseTo),
+  <<?get_header_ignore_req_id(?ReplyOpcode, ResponseTo),
   ?get_bits32(_, _, _, _, AwaitCapable, _, QueryError, CursorNotFound),
   ?get_int64(CursorId),
   ?get_int32(StartingFrom),

@@ -18,7 +18,7 @@
 %% API
 -export([request_worker/2, process_reply/2]).
 -export([read/2, read_one/2, read_one_sync/4]).
--export([op_msg/2, op_msg_read_one/2, op_msg_raw_result/2]).
+-export([op_msg/2, op_msg_sync/4, op_msg_read_one/2, op_msg_raw_result/2]).
 
 -spec read(pid() | atom(), query()) -> [] | pid().
 read(Connection, Request = #'query'{collection = Collection, batchsize = BatchSize}) ->
@@ -35,10 +35,9 @@ read(Connection, Request, Collection, BatchSize) ->
         {_, []} ->
             [];
         {Cursor, Batch} ->
-            erlang:display({got_here_with, {Cursor, Batch}}),
             mc_cursor:start(Connection, Collection, Cursor, BatchSize, Batch);
         X ->
-            erlang:display({xxxxxxxxxxxxxxxxxx, X})
+            erlang:error({error_unexpected_response, X})
     end.
 
 -spec read_one(pid() | atom(), query()) -> undefined | map().
@@ -50,8 +49,6 @@ read_one(Connection, Request) ->
   end.
 
 op_msg_raw_result(Connection, OpMsg) ->
-    Doc = request_worker(Connection, OpMsg),
-    erlang:display({got_answerrrrrrrrrrrrrrrrrrrrrrrrrrr, Doc}),
     Timeout = mc_utils:get_timeout(),
     FromServer = gen_server:call(Connection, OpMsg, Timeout),
     case FromServer of
@@ -59,13 +56,11 @@ op_msg_raw_result(Connection, OpMsg) ->
                          (#{<<"ok">> := 1.0} = Res)} ->
             Res;
         _ ->
-            erlang:display(whhkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk),
             erlang:error({error, FromServer})
     end.
 
 op_msg(Connection, OpMsg) ->
   Doc = request_worker(Connection, OpMsg),
-  erlang:display({got_answerrrrrrrrrrrrrrrrrrrrrrrrrrr, Doc}),
   process_reply(Doc, OpMsg).
 
 op_msg_read_one(Connection, OpMsg) ->
@@ -92,7 +87,6 @@ op_msg_read_one(Connection, OpMsg) ->
 request_worker(Connection, Request) ->  %request to worker
   Timeout = mc_utils:get_timeout(),
   FromServer = gen_server:call(Connection, Request, Timeout),
-  erlang:display({frommm_server, FromServer, Request}),
   reply(FromServer).
 
 process_reply(Doc = #{<<"ok">> := N}, _) when is_number(N) ->   %command succeed | failed

@@ -141,7 +141,6 @@ append_read_preference(Selector, RP) ->
 
 
 extract_read_preference(#{<<"$readPreference">> := RP} = Selector) ->
-   erlang:display({orderbyg_field, maps:get(<<"$orderby">>, Selector, #{})}) ,
     {RP,
      maps:get(<<"$query">>, Selector, #{}),
      maps:get(<<"$orderby">>, Selector, #{})};
