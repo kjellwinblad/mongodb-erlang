@@ -19,7 +19,7 @@
 -type reply() :: #reply{}.
 % message id
 -type requestid() :: integer().
--type message() :: notice() | request().
+-type message() :: notice() | request() | #op_msg_command{} | #op_msg_write_op{}.
 
 % RequestId expected to be in scope at call site
 -define(put_header(Opcode), ?put_int32(_RequestId), ?put_int32(0), ?put_int32(Opcode)).

@@ -20,7 +20,7 @@
 -export([read/2, read_one/2, read_one_sync/4]).
 -export([op_msg/2, op_msg_sync/4, op_msg_read_one/2, op_msg_raw_result/2]).
 
--spec read(pid() | atom(), query()) -> [] | pid().
+-spec read(pid() | atom(), query()) -> [] | {ok, pid()}.
 read(Connection, Request = #'query'{collection = Collection, batchsize = BatchSize}) ->
     read(Connection, Request, Collection, BatchSize);
 read(Connection, #'op_msg_command'{command_doc = ([{_, Collection} | _ ] = Fields)} = Request)  ->
@@ -83,7 +83,7 @@ op_msg_read_one(Connection, OpMsg) ->
           erlang:error({error_unexpected_response, Response})
   end.
 
--spec request_worker(pid(), mongo_protocol:message()) -> ok | {non_neg_integer(), [map()]}.
+-spec request_worker(pid(), mongo_protocol:message()) -> ok | {non_neg_integer(), [map()]} | map().
 request_worker(Connection, Request) ->  %request to worker
   Timeout = mc_utils:get_timeout(),
   FromServer = gen_server:call(Connection, Request, Timeout),
@@ -132,7 +132,7 @@ process_error(_, Doc) ->
   erlang:error({bad_query, Doc}).
 
 %% @private
--spec request_raw(port(), mc_worker_api:database(), mongo_protocol:message(), module()) ->
+-spec request_raw(any(), mc_worker_api:database(), mongo_protocol:message(), module()) ->
   ok | {non_neg_integer(), [map()]}.
 request_raw(Socket, Database, Request, NetModule) ->
   Timeout = mc_utils:get_timeout(),
@@ -140,7 +140,7 @@ request_raw(Socket, Database, Request, NetModule) ->
   {ok, _, _} = mc_worker_logic:make_request(Socket, NetModule, Database, Request),
   Responses = recv_all(Socket, Timeout, NetModule),
   ok = set_opts(Socket, NetModule, true),
-  {_, Reply} = hd(Responses),
+  Reply = hd(Responses),
   reply(Reply).
 
 %% @private

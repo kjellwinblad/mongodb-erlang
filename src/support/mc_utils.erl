@@ -74,7 +74,7 @@ use_legacy_protocol() ->
   %% 5.0.x (at the time of writing 5.0.14). The non-op-msg based protocol was
   %% removed in MongoDB version 5.1.0. See
   %% https://www.mongodb.com/docs/manual/legacy-opcodes/
-  application:get_env(mongodb, use_legacy_protocol, false).
+  application:get_env(mongodb, use_legacy_protocol, true).
 
 hmac(One, Two) -> crypto:mac(hmac, sha, One, Two).
 

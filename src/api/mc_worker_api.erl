@@ -101,7 +101,7 @@ update(Connection, Coll, Selector, Doc, Upsert, MultiUpdate, WC) ->
           Msg = #op_msg_write_op{command = update,
                                  collection = Coll,
                                  extra_fields = [{<<"writeConcern">>, WC}],
-                                 documents_name = updates,
+                                 documents_name = <<"updates">>,
                                  documents = [#{<<"q">> => Selector,
                                                 <<"u">> => Converted,
                                                 <<"upsert">> => Upsert,
@@ -192,7 +192,7 @@ find_one(Connection, Query) when is_record(Query, query) ->
                      skip = Skip,
                      selector = Selector,
                      projector = Projector} = Query,
-            {RP, NewSelector} = mongoc:extract_read_preference(Selector),
+            {RP, NewSelector, _} = mongoc:extract_read_preference(Selector),
             Args = #{projector => Projector,
                      skip => Skip,
                      readopts => RP},
@@ -257,7 +257,7 @@ find(Connection, Query) when is_record(Query, query) ->
                     end,
                 SortField =
                     case OrderBy of
-                        M when is_map(M) and map_size(M) =:= 0 ->
+                        M when is_map(M), map_size(M) =:= 0 ->
                             [];
                         _ ->
                             [{<<"sort">>, OrderBy}] 
@@ -374,18 +374,21 @@ command(Connection, Command, _IsSlaveOk = false) ->
   command(Connection, Command).
 
 %% @doc Execute MongoDB command in this thread
--spec sync_command(port(), binary(), mc_worker_api:selector(), module()) -> {boolean(), map()}.
+-spec sync_command(any(), binary(), mc_worker_api:selector(), module()) -> {boolean(), map()}.
 sync_command(Socket, Database, Command, SetOpts) ->
     case mc_utils:use_legacy_protocol() of
         true -> 
-            Doc = mc_connection_man:read_one_sync(Socket, Database, #'query'{
-                                                                       collection = <<"$cmd">>,
-                                                                       selector = Command
-                                                                      }, SetOpts),
+            Doc = mc_connection_man:read_one_sync(Socket,
+                                                  Database,
+                                                  #'query'{
+                                                     collection = <<"$cmd">>,
+                                                     selector = Command
+                                                    },
+                                                  SetOpts),
             mc_connection_man:process_reply(Doc, Command);
         false ->
             Request = #op_msg_command{command_doc = fix_command_obj_list(Command)},
-            Doc = mc_connection_man:op_msg_sync(Socket, Database, Request, SetOpts),
+            {_, [Doc]} = mc_connection_man:op_msg_sync(Socket, Database, Request, SetOpts),
             mc_connection_man:process_reply(Doc, Command)
     end.
 

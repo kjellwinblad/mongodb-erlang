@@ -21,7 +21,7 @@
   request_storage = #{} :: map(),
   buffer = <<>> :: binary(),
   conn_state :: conn_state(),
-  hibernate_timer :: timer:tref() | undefined,
+  hibernate_timer :: timer:tref() | reference() | undefined,
   next_req_fun :: fun(),
   net_module :: ssl | gen_tcp
 }).
@@ -58,12 +58,15 @@ init(Options) ->
               #state{socket = Socket,
                      conn_state = ConnState,
                      net_module = NetModule,
-                     next_req_fun = NextReqFun});
+                     next_req_fun = NextReqFun}),
+          ignore;
         {error, Reason} ->
-          proc_lib:init_ack({error, Reason})
+          proc_lib:init_ack({error, Reason}),
+          ignore
       end;
     Error ->
-      proc_lib:init_ack(Error)
+      proc_lib:init_ack(Error),
+      ignore
   end.
 
 handle_call(NewState, _, State = #state{conn_state = OldState}) when is_record(NewState, conn_state) ->  % update state, return old
@@ -136,11 +139,9 @@ process_op_msg_request(Request, From, State) ->
     case get_op_msg_write_concern(Request) of
         {_, {<<"w">>, 0}} -> %no concern request
             Next(),
-            {reply, #reply{
-                       cursornotfound = false,
-                       queryerror = false,
-                       cursorid = 0,
-                       documents = [#{<<"ok">> => 1}]}, UState};
+            {reply,
+             #op_msg_response{response_doc = #{<<"ok">> => 1.0}},
+             UState};
         _ ->  %ordinary request with response
             Next(),
             RespFun = mc_worker_logic:get_resp_fun(Request, From),  % save function, which will be called on response
@@ -191,18 +192,18 @@ process_write_request(Request, _, State = #state{conn_state = #conn_state{write_
   {ok, PacketSize, _} = mc_worker_logic:make_request(Socket, NetModule, Db, Request),
   UState = need_hibernate(PacketSize, State),
   {reply, ok, UState};
-process_write_request(Request, From, State = #state{conn_state = #conn_state{write_mode = Safe, database = Db}}) ->
+process_write_request(Request, From, State = #state{conn_state = #conn_state{write_mode = _Safe, database = Db}}) ->
   #state{socket = Socket, net_module = NetModule, request_storage = ReqStor} = State,
-  Params = case Safe of safe -> {}; {safe, Param} -> Param end,
-  ConfirmWrite =
-    #'query'
-    { % check-write read request
-      batchsize = -1,
-      collection = mc_worker_logic:update_dbcoll(mc_worker_logic:collection(Request), <<"$cmd">>),
-      selector = bson:append({<<"getlasterror">>, 1}, Params)
-    },
+  % Params = case Safe of safe -> {}; {safe, Param} -> Param end,
+  % ConfirmWrite =
+  %   #'query'
+  %   { % check-write read request
+  %     batchsize = -1,
+  %     collection = mc_worker_logic:update_dbcoll(mc_worker_logic:collection(Request), <<"$cmd">>),
+  %     selector = bson:append({<<"getlasterror">>, 1}, Params)
+  %   },
   {ok, PacketSize, Id} = mc_worker_logic:make_request(
-    Socket, NetModule, Db, [Request, ConfirmWrite]), % ordinary write request
+    Socket, NetModule, Db, Request), % ordinary write request
   RespFun = mc_worker_logic:get_resp_fun(Request, From),
   UReqStor = ReqStor#{Id => RespFun},  % save function, which will be called on response
   UState = need_hibernate(PacketSize, State#state{request_storage = UReqStor}),
