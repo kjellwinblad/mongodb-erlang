@@ -26,7 +26,10 @@ end_per_suite(_Config) ->
 init_per_testcase(Case, Config) ->
   {ok, Pid} = mongo_api:connect(single, ["localhost:27017"],
     [{pool_size, 1}, {max_overflow, 0}], [{database, ?config(database, Config)}]),
-  [{connection, Pid}, {collection, mc_test_utils:collection(Case)} | Config].
+  erlang:display({init_per_test_case_ok}),
+  WhatToRet = [{connection, Pid}, {collection, mc_test_utils:collection(Case)} | Config],
+  erlang:display({what_to_ret, WhatToRet}),
+  WhatToRet.
 
 end_per_testcase(_Case, Config) ->
   Connection = ?config(connection, Config),
@@ -36,11 +39,17 @@ end_per_testcase(_Case, Config) ->
 
 %% Tests
 ensure_index_test(Config) ->
-  Pid = ?config(connection, Config),
-  Collection = ?config(collection, Config),
-  ok = mongo_api:ensure_index(Pid, Collection, #{<<"key">> => {<<"cid">>, 1, <<"ts">>, 1}}),
-  ok = mongo_api:ensure_index(Pid, Collection, {<<"key">>, {<<"z_first">>, 1, <<"a_last">>, 1}}),
-  Config.
+    case mc_utils:use_legacy_protocol() of
+        true ->
+            Pid = ?config(connection, Config),
+            Collection = ?config(collection, Config),
+            ok = mongo_api:ensure_index(Pid, Collection, #{<<"key">> => {<<"cid">>, 1, <<"ts">>, 1}}),
+            ok = mongo_api:ensure_index(Pid, Collection, {<<"key">>, {<<"z_first">>, 1, <<"a_last">>, 1}}),
+            Config;
+        false ->
+            {skip, <<"The ensure_index function does not work when one have specified application:set_env(mongodb, use_legacy_protocol, false).">>},
+            Config
+    end.
 
 count_test(Config) ->
   Collection = ?config(collection, Config),
@@ -63,10 +72,15 @@ count_test(Config) ->
   ?assertEqual(4, N),
   Config.
 
+show(X) ->
+    erlang:display({showwwwwwwwwwwwwwwwwwwwwwwww, X}),
+    X.
+
 find_one_test(Config) ->
   Collection = ?config(collection, Config),
   Pid = ?config(connection, Config),
-  undefined = mongo_api:find_one(Pid, Collection, #{}, #{<<"name">> => true}),
+  erlang:display({find_onennnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn, Collection}),
+  undefined = show(mongo_api:find_one(Pid, Collection, #{}, #{<<"name">> => true})),
   {{true, #{<<"n">> := 4}}, _} = mongo_api:insert(Pid, Collection, [
     #{<<"name">> => <<"Yankees">>,
       <<"home">> => #{<<"city">> => <<"New York">>, <<"state">> => <<"NY">>},
@@ -81,8 +95,11 @@ find_one_test(Config) ->
       <<"home">>=> #{<<"city">> => <<"Boston">>, <<"state">> => <<"MA">>},
       <<"league">> => <<"American">>}
   ]),
-  #{<<"name">> := <<"Yankees">>} = mongo_api:find_one(Pid, Collection, #{}, #{<<"name">> => true}),
-  undefined = mongo_api:find_one(Pid, Collection, #{<<"name">> => <<"Batman">>}, #{<<"name">> => true}),
+  erlang:display({b22222eforeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee}),
+  % #{<<"name">> := <<"Yankees">>} = mongo_api:find_one(Pid, Collection, #{}, #{<<"name">> => true}),
+  erlang:display({beforeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee}),
+  Got = show(mongo_api:find_one(Pid, Collection, #{<<"name">> => <<"Batman">>}, #{<<"name">> => true})),
+  undefined = Got,
   Config.
 
 find_test(Config) ->

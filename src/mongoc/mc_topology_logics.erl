@@ -19,7 +19,7 @@
 -define(NOT_MAX(E, M), (E =/= undefined andalso M =/= undefined andalso E < M)).
 
 -define(LOG_TOPOLOGY_ERROR(Configured, Actual),
-  logger:error("Configured mongo client topology does not match actual mongo install topology. Configured: ~p; Actual: ~p", [Configured, Actual])).
+  erlang:display(log_error),logger:error("Configured mongo client topology does not match actual mongo install topology. Configured: ~p; Actual: ~p", [Configured, Actual])).
 
 -define(LOG_SET_NAME_ERROR(Configured, Actual),
   logger:error("Configured mongo set name does not match actual mongo install set name. Configured: ~p; Actual: ~p", [Configured, Actual])).
@@ -131,11 +131,19 @@ init_seeds([Addr | Seeds], Tab, Topts, Wopts) ->
 
 validate_server_and_config(ConnectArgs, TopologyType, TopologySetName) ->
   {ok, Conn} = mc_worker_api:connect(ConnectArgs),
-  {true, IsMaster} = mc_worker_api:command(Conn, {isMaster, 1}),
+  {true, IsMaster} =
+      case mc_utils:use_legacy_protocol() of
+          true ->
+              mc_worker_api:command(Conn, {isMaster, 1});
+          false ->
+              erlang:display({sending_heloooooooooooooooooooooooooooooooo}),
+              mc_worker_api:command(Conn, {hello, 1})
+      end,
+  erlang:display({response_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, IsMaster}),
   mc_worker_api:disconnect(Conn),
   ServerType = server_type(IsMaster),
   ServerSetName = maps:get(<<"setName">>, IsMaster, undefined),
-
+  erlang:display({server_type_is, ServerType, TopologyType}),
   case TopologyType of
     unknown when ?SEC_ARB_OTH(ServerType) ->
       ?LOG_TOPOLOGY_ERROR(unknown, ServerType),
@@ -170,12 +178,47 @@ validate_server_and_config(ConnectArgs, TopologyType, TopologySetName) ->
       {configured_mongo_set_name_mismatch, TopologySetName, ServerSetName};
 
     _ ->
+          erlang:display({got_it_okkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk}),
       ok
   end.
 
+
+% #{<<"connectionId">>=>
+% 31,
+% <<"isWritablePrimary">>=>
+% true,
+% <<"localTime">>=>
+% {1670,248639,376000},
+% <<"logicalSessionTimeoutMinutes">>=>
+% 30,
+% <<"maxBsonObjectSize">>=>
+% 16777216,
+% <<"maxMessageSizeBytes">>=>
+% 48000000,
+% <<"maxWireVersion">>=>
+% 13,
+% <<"maxWriteBatchSize">>=>
+% 100000,
+% <<"minWireVersion">>=>
+% 0,
+% <<"ok">>=>
+% 1.000000e+00,
+% <<"readOnly">>=>
+% false,
+% <<"topologyVersion">>=>
+% #{<<"counter">>=>
+% 0,
+% <<"processId">>=>
+% {<<99,141,242,189,164,233,108,32,10,212,184,214>>}}}}
+
+
 server_type(#{<<"ismaster">> := true, <<"secondary">> := false, <<"setName">> := _}) ->
   rsPrimary;
+server_type(#{<<"isWritablePrimary">> := true, <<"secondary">> := false, <<"setName">> := _}) ->
+  rsPrimary;
 server_type(#{<<"ismaster">> := false, <<"secondary">> := true, <<"setName">> := _}) ->
+  rsSecondary;
+server_type(#{<<"isWritablePrimary">> := false, <<"secondary">> := true, <<"setName">> := _}) ->
   rsSecondary;
 server_type(#{<<"arbiterOnly">> := true, <<"setName">> := _}) ->
   rsArbiter;
@@ -187,6 +230,8 @@ server_type(#{<<"msg">> := <<"isdbgrid">>}) ->
   mongos;
 server_type(#{<<"isreplicaset">> := true}) ->
   rsGhost;
+server_type(#{<<"isWritablePrimary">> := true}) ->
+  standalone;
 server_type(#{<<"ok">> := _}) ->
   unknown;
 server_type(_) ->

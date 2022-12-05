@@ -80,6 +80,7 @@ find(Topology, Collection, Selector, Projector, Skip, Batchsize) ->
 -spec find_one(atom() | pid(), collection(), selector(), projector()) ->
   transaction_result(map() | undefined).
 find_one(Topology, Collection, Selector, Projector) ->
+    erlang:display({here}),
   find_one(Topology, Collection, Selector, Projector, 0).
 
 -spec find_one(atom() | pid(), collection(), selector(), projector(), integer()) ->
@@ -90,9 +91,12 @@ find_one(Topology, Collection, Selector, Projector, Skip) ->
 -spec find_one(atom() | pid(), collection(), selector(), projector(), integer(), timeout()) ->
   transaction_result(map() | undefined).
 find_one(Topology, Collection, Selector, Projector, Skip, Timeout) ->
+    erlang:display({in_find_one}),
   mongoc:transaction_query(Topology,
     fun(Conf = #{pool := Worker}) ->
+    erlang:display({in_transaction_before_mongoc}),
       Query = mongoc:find_one_query(Conf, Collection, Selector, Projector, Skip),
+    erlang:display({got_modified_query, Query}),
       mc_worker_api:find_one(Worker, Query)
     end, #{}, Timeout).
 

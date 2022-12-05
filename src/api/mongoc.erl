@@ -83,6 +83,7 @@ transaction_query(Topology, Transaction, Options) ->
 
 -spec transaction_query(pid() | atom(), fun(), map(), timeout()) -> any().
 transaction_query(Topology, Transaction, Options, Timeout) ->
+    erlang:display({before_get_poo}),
   case mc_topology:get_pool(Topology, Options) of
     {ok, Pool = #{pool := C}} ->
       poolboy:transaction(C, fun(Worker) -> Transaction(Pool#{pool => Worker}) end, Timeout);
@@ -146,13 +147,13 @@ extract_read_preference(#{<<"$readPreference">> := RP} = Selector) ->
      maps:get(<<"$orderby">>, Selector, #{})};
 extract_read_preference(Selector) when is_map(Selector) ->
     {#{<<"mode">> => <<"primary">>},
-     maps:get(<<"$query">>, Selector, #{}),
+     maps:get(<<"$query">>, Selector, Selector),
      maps:get(<<"$orderby">>, Selector, #{})};%TODO also extract orderby and what else might be inside (strange but needed to pass test)
 extract_read_preference(Selector) when is_tuple(Selector) ->
   Fields = bson:fields(Selector),
   Query = case lists:keyfind(<<"$query">>, 1, Fields) of
               {_, Q} -> Q;
-              false -> #{}
+              false -> Selector
           end,
   OrderBy = case lists:keyfind(<<"$orderby">>, 1, Fields) of
               {_, OB} -> OB;

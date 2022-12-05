@@ -107,7 +107,9 @@ get_pool(Topology) ->
 get_pool(Topology, Options) when is_list(Options) ->
   get_pool(Topology, maps:from_list(Options));
 get_pool(Topology, Options) ->
+    erlang:display({get_state}),
   State = mc_topology:get_state(Topology),
+    erlang:display({get_state_after}),
   RPMode = maps:get(rp_mode, Options, State#topology_state.rp_mode),
   RPTags = maps:get(rp_tags, Options, State#topology_state.rp_tags),
   get_pool(RPMode, RPTags, State).
@@ -116,6 +118,7 @@ get_pool(RPMode, RPTags, State) ->
   TO = State#topology_state.topology_opts,
   ServerSelectionTimeoutMS = mc_utils:get_value(serverSelectionTimeoutMS, TO, 30000),
   Caller = self(),
+  erlang:display({spawning, get_pool}),
   Pid = spawn(?MODULE, get_pool, [self(), State, RPMode, RPTags, Caller]),
   receive
     {Pid, {error, Reason}, _} ->
@@ -130,6 +133,7 @@ get_pool(RPMode, RPTags, State) ->
   end.
 
 get_pool(From, #topology_state{self = Topology, get_pool_timeout = TM} = State, RPMode, Tags) ->
+    erlang:display({'mc_selecting_logics:select_server',Topology, RPMode, Tags}),
   case mc_selecting_logics:select_server(Topology, RPMode, Tags) of
     #mc_server{pid = Pid, type = Type} ->
       Pool = mc_server:get_pool(Pid, TM),
@@ -140,6 +144,7 @@ get_pool(From, #topology_state{self = Topology, get_pool_timeout = TM} = State, 
   end.
 
 get_pool(From, #topology_state{self = Topology, get_pool_timeout = TM} = State, RPMode, Tags, Caller) ->
+    erlang:display({'mc_selecting_logics:select_server',Topology, RPMode, Tags}),
   case is_process_alive(Caller) of
     false -> ok;
     true ->
@@ -235,6 +240,7 @@ parse_ismaster(Server, IsMaster, RTT, State = #topology_state{servers = Tab}) ->
   SType = mc_topology_logics:server_type(IsMaster),
   [Saved] = ets:select(Tab, [{#mc_server{pid = Server, _ = '_'}, [], ['$_']}]),
   {OldRTT, NRTT} = parse_rtt(Saved#mc_server.old_rtt, Saved#mc_server.rtt, RTT),
+  erlang:display('TODO NEED TO UPDATE HERE'),
   ToUpdate = Saved#mc_server{
     type = SType,
     me = maps:get(<<"me">>, IsMaster, undefined),
@@ -250,12 +256,19 @@ parse_ismaster(Server, IsMaster, RTT, State = #topology_state{servers = Tab}) ->
     arbiters = maps:get(<<"arbiters">>, IsMaster, []),
     electionId = maps:get(<<"electionId">>, IsMaster, undefined),
     primary = maps:get(<<"primary">>, IsMaster, undefined),
-    ismaster = maps:get(<<"ismaster">>, IsMaster, undefined),
+    ismaster = get_is_master_is_master(IsMaster),
     secondary = maps:get(<<"secondary">>, IsMaster, undefined)
   },
   ets:insert(Tab, ToUpdate),
   mc_server:update_ismaster(ToUpdate#mc_server.pid, {SType, ToUpdate}),
   mc_topology_logics:update_topology_state(ToUpdate, State).
+
+get_is_master_is_master(#{<<"ismaster">> := V} = _IsMaster) ->
+    V;
+get_is_master_is_master(#{<<"isWritablePrimary">> := V} = _IsMaster) ->
+    V;
+get_is_master_is_master(_) ->
+    undefined.
 
 %% @private
 parse_rtt(_, undefined, RTT) -> {RTT, RTT};
