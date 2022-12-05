@@ -131,7 +131,13 @@ init_seeds([Addr | Seeds], Tab, Topts, Wopts) ->
 
 validate_server_and_config(ConnectArgs, TopologyType, TopologySetName) ->
   {ok, Conn} = mc_worker_api:connect(ConnectArgs),
-  {true, IsMaster} = mc_worker_api:command(Conn, {isMaster, 1}),
+  {true, IsMaster} =
+      case mc_utils:use_legacy_protocol() of
+          true ->
+              mc_worker_api:command(Conn, {isMaster, 1});
+          false ->
+              mc_worker_api:command(Conn, {hello, 1})
+      end,
   mc_worker_api:disconnect(Conn),
   ServerType = server_type(IsMaster),
   ServerSetName = maps:get(<<"setName">>, IsMaster, undefined),
@@ -175,7 +181,11 @@ validate_server_and_config(ConnectArgs, TopologyType, TopologySetName) ->
 
 server_type(#{<<"ismaster">> := true, <<"secondary">> := false, <<"setName">> := _}) ->
   rsPrimary;
+server_type(#{<<"isWritablePrimary">> := true, <<"secondary">> := false, <<"setName">> := _}) ->
+  rsPrimary;
 server_type(#{<<"ismaster">> := false, <<"secondary">> := true, <<"setName">> := _}) ->
+  rsSecondary;
+server_type(#{<<"isWritablePrimary">> := false, <<"secondary">> := true, <<"setName">> := _}) ->
   rsSecondary;
 server_type(#{<<"arbiterOnly">> := true, <<"setName">> := _}) ->
   rsArbiter;
@@ -187,6 +197,8 @@ server_type(#{<<"msg">> := <<"isdbgrid">>}) ->
   mongos;
 server_type(#{<<"isreplicaset">> := true}) ->
   rsGhost;
+server_type(#{<<"isWritablePrimary">> := true}) ->
+  standalone;
 server_type(#{<<"ok">> := _}) ->
   unknown;
 server_type(_) ->
