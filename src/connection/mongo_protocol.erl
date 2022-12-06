@@ -99,7 +99,6 @@ put_message(Db, #op_msg_write_op{} = OpMsg, _RequestId) ->
       (put_section_type_zero(OpMsg#op_msg_write_op{database = make_bin(Db)}))/binary
     >>;
 put_message(Db, #op_msg_command{} = OpMsg, _RequestId) ->
-    erlang:display({dbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Db}),
     <<
       ?put_header(?OpMsgOpcode),
       ?put_uint32(0), % Flags

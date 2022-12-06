@@ -17,22 +17,18 @@
 -export([select_server/3]).
 
 select_server(Topology, primaryPreferred, Tags) ->
-    erlang:display({primaryPreferred}),
   case select_server(Topology, primary, Tags) of
     undefined -> select_server(Topology, secondary, Tags);
     Primary -> Primary
   end;
 select_server(Topology, secondaryPreferred, Tags) ->
-    erlang:display({secondaryPreferred}),
   case select_server(Topology, secondary, Tags) of
     undefined -> select_server(Topology, primary, Tags);
     Primary -> Primary
   end;
 select_server(Topology, nearest, Tags) ->
-    erlang:display({nearest}),
   get_nearest(select_server(Topology, primary, Tags), select_server(Topology, secondary, Tags));
 select_server(Topology, Mode, Tags) ->
-    erlang:display({something_lse, Mode}),
   {Tab, TType, Threshold} = mc_topology:get_state_part(Topology),
   LowestRTT = ets:foldl(fun count_lowest_rtt/2, 0, Tab),
   MaxRTT = LowestRTT + Threshold,
@@ -44,7 +40,6 @@ select_server(Topology, Mode, Tags) ->
       end
     end,
     [], Tab),
-  erlang:display({candidates,Candidates, Tab, ets:tab2list(Tab)}),
   select_candidate(Mode, TType, Candidates).
 
 

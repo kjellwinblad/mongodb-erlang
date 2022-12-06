@@ -19,7 +19,7 @@
 -define(NOT_MAX(E, M), (E =/= undefined andalso M =/= undefined andalso E < M)).
 
 -define(LOG_TOPOLOGY_ERROR(Configured, Actual),
-  erlang:display(log_error),logger:error("Configured mongo client topology does not match actual mongo install topology. Configured: ~p; Actual: ~p", [Configured, Actual])).
+  logger:error("Configured mongo client topology does not match actual mongo install topology. Configured: ~p; Actual: ~p", [Configured, Actual])).
 
 -define(LOG_SET_NAME_ERROR(Configured, Actual),
   logger:error("Configured mongo set name does not match actual mongo install set name. Configured: ~p; Actual: ~p", [Configured, Actual])).
@@ -136,14 +136,11 @@ validate_server_and_config(ConnectArgs, TopologyType, TopologySetName) ->
           true ->
               mc_worker_api:command(Conn, {isMaster, 1});
           false ->
-              erlang:display({sending_heloooooooooooooooooooooooooooooooo}),
               mc_worker_api:command(Conn, {hello, 1})
       end,
-  erlang:display({response_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, IsMaster}),
   mc_worker_api:disconnect(Conn),
   ServerType = server_type(IsMaster),
   ServerSetName = maps:get(<<"setName">>, IsMaster, undefined),
-  erlang:display({server_type_is, ServerType, TopologyType}),
   case TopologyType of
     unknown when ?SEC_ARB_OTH(ServerType) ->
       ?LOG_TOPOLOGY_ERROR(unknown, ServerType),
@@ -178,7 +175,6 @@ validate_server_and_config(ConnectArgs, TopologyType, TopologySetName) ->
       {configured_mongo_set_name_mismatch, TopologySetName, ServerSetName};
 
     _ ->
-          erlang:display({got_it_okkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk}),
       ok
   end.
 

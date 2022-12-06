@@ -83,7 +83,6 @@ transaction_query(Topology, Transaction, Options) ->
 
 -spec transaction_query(pid() | atom(), fun(), map(), timeout()) -> any().
 transaction_query(Topology, Transaction, Options, Timeout) ->
-    erlang:display({before_get_poo}),
   case mc_topology:get_pool(Topology, Options) of
     {ok, Pool = #{pool := C}} ->
       poolboy:transaction(C, fun(Worker) -> Transaction(Pool#{pool => Worker}) end, Timeout);

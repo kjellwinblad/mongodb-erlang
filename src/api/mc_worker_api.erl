@@ -152,7 +152,6 @@ find_one(Connection, Coll, Selector) ->
 %% @doc Return first selected document, if any
 -spec find_one(pid(), colldb(), selector(), map()) -> map() | undefined.
 find_one(Connection, Coll, Selector, Args) ->
-    erlang:display({gothere_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, Selector}),
       Projector = maps:get(projector, Args, #{}),
       Skip = maps:get(skip, Args, 0),
       ReadPref = maps:get(readopts, Args, #{<<"mode">> => <<"primary">>}),
@@ -178,7 +177,6 @@ find_one(Connection, Coll, Selector, Args) ->
                                 {<<"singleBatch">>, true} %% Close cursor after first batch
                                         
                            ],
-              erlang:display({CommandDoc}),
               mc_connection_man:op_msg_read_one(Connection,
                                                 #'op_msg_command'{
                                                    command_doc = CommandDoc
@@ -190,12 +188,10 @@ find_one(Connection, Query) when is_record(Query, query) ->
     case mc_utils:use_legacy_protocol() of
         true -> mc_connection_man:read_one(Connection, Query);
         false ->
-            erlang:display({gottkokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokokoko}),
             #'query'{collection = Coll,
                      skip = Skip,
                      selector = Selector,
                      projector = Projector} = Query,
-            erlang:display({selecor_before, Selector}),
             {RP, NewSelector, _} = mongoc:extract_read_preference(Selector),
             Args = #{projector => Projector,
                      skip => Skip,
