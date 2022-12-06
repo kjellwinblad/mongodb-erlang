@@ -141,6 +141,7 @@ validate_server_and_config(ConnectArgs, TopologyType, TopologySetName) ->
   mc_worker_api:disconnect(Conn),
   ServerType = server_type(IsMaster),
   ServerSetName = maps:get(<<"setName">>, IsMaster, undefined),
+
   case TopologyType of
     unknown when ?SEC_ARB_OTH(ServerType) ->
       ?LOG_TOPOLOGY_ERROR(unknown, ServerType),
@@ -177,36 +178,6 @@ validate_server_and_config(ConnectArgs, TopologyType, TopologySetName) ->
     _ ->
       ok
   end.
-
-
-% #{<<"connectionId">>=>
-% 31,
-% <<"isWritablePrimary">>=>
-% true,
-% <<"localTime">>=>
-% {1670,248639,376000},
-% <<"logicalSessionTimeoutMinutes">>=>
-% 30,
-% <<"maxBsonObjectSize">>=>
-% 16777216,
-% <<"maxMessageSizeBytes">>=>
-% 48000000,
-% <<"maxWireVersion">>=>
-% 13,
-% <<"maxWriteBatchSize">>=>
-% 100000,
-% <<"minWireVersion">>=>
-% 0,
-% <<"ok">>=>
-% 1.000000e+00,
-% <<"readOnly">>=>
-% false,
-% <<"topologyVersion">>=>
-% #{<<"counter">>=>
-% 0,
-% <<"processId">>=>
-% {<<99,141,242,189,164,233,108,32,10,212,184,214>>}}}}
-
 
 server_type(#{<<"ismaster">> := true, <<"secondary">> := false, <<"setName">> := _}) ->
   rsPrimary;

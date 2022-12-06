@@ -43,16 +43,6 @@ select_server(Topology, Mode, Tags) ->
   select_candidate(Mode, TType, Candidates).
 
 
-
-% {candidates,[],#Ref<0.625201274.2658271233.73992>,[{mc_server,<0.223.0>,#Ref<0.625201274.2658140161.74049>,<<"localhost:27017">>,unknown,undefined,1144,1144,undefined,undefined,[],0,13,[],[],[],undefined,undefined,true,undefined}]}
-
-
-
-% [{mc_server,<0.261.0>,#Ref<0.4232639252.779091969.61110>,<<"localhost:27017">>,standalone,undefined,1004,1004,undefined,undefined,[],0,13,[],[],[],undefined,undefined,true,undefined}]
-
-
-
-
 %% @private
 count_lowest_rtt(#mc_server{rtt = RTT, type = Type}, 0) when ?SUITABLE_TYPE(Type) -> RTT;
 count_lowest_rtt(#mc_server{rtt = RTT, type = Type}, Acc) when ?SUITABLE_TYPE(Type) andalso RTT < Acc -> RTT;

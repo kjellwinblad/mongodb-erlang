@@ -20,7 +20,6 @@ clean-docs:
 # Tests
 tests: app eunit ct
 
-
 eunit:
 	ERL_FLAGS='-mongodb use_legacy_protocol true' $(REBAR) as test eunit
 	ERL_FLAGS='-mongodb use_legacy_protocol false' $(REBAR) as test eunit

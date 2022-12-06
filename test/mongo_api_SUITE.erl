@@ -69,7 +69,6 @@ count_test(Config) ->
   ?assertEqual(4, N),
   Config.
 
-
 find_one_test(Config) ->
   Collection = ?config(collection, Config),
   Pid = ?config(connection, Config),
@@ -88,9 +87,8 @@ find_one_test(Config) ->
       <<"home">>=> #{<<"city">> => <<"Boston">>, <<"state">> => <<"MA">>},
       <<"league">> => <<"American">>}
   ]),
-  % #{<<"name">> := <<"Yankees">>} = mongo_api:find_one(Pid, Collection, #{}, #{<<"name">> => true}),
-  Got = mongo_api:find_one(Pid, Collection, #{<<"name">> => <<"Batman">>}, #{<<"name">> => true}),
-  undefined = Got,
+  #{<<"name">> := <<"Yankees">>} = mongo_api:find_one(Pid, Collection, #{}, #{<<"name">> => true}),
+  undefined = mongo_api:find_one(Pid, Collection, #{<<"name">> => <<"Batman">>}, #{<<"name">> => true}),
   Config.
 
 find_test(Config) ->
