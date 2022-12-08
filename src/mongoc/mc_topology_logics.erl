@@ -132,7 +132,7 @@ init_seeds([Addr | Seeds], Tab, Topts, Wopts) ->
 validate_server_and_config(ConnectArgs, TopologyType, TopologySetName) ->
   {ok, Conn} = mc_worker_api:connect(ConnectArgs),
   {true, IsMaster} =
-      case mc_utils:use_legacy_protocol() of
+      case mc_utils:use_legacy_protocol(Conn) of
           true ->
               mc_worker_api:command(Conn, {isMaster, 1});
           false ->

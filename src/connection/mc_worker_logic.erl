@@ -25,6 +25,7 @@ connect_to_database(Conf) ->
   SslOpts = mc_utils:get_value(ssl_opts, Conf, []),
   do_connect(Host, Port, Timeout, SSL, SslOpts).
 
+
 %% Get server version. This is need to choose default authentication method.
 -spec get_version(port(), binary(), module()) -> float().
 get_version(Socket, Database, SetOpts) ->

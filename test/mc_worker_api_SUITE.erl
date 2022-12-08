@@ -58,7 +58,6 @@ insert_and_find(Config) ->
       <<"league">> => <<"American">>}
   ],
   TeamList = NationalTeams ++ AmericanTeams,
-
   {{true, _}, Teams} = mc_worker_api:insert(Connection, Collection, TeamList),
   4 = mc_worker_api:count(Connection, Collection, #{}),
   {ok, TeamsCur} = mc_worker_api:find(Connection, Collection, #{}),

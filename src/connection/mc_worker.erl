@@ -28,7 +28,8 @@
 
 -spec start_link(proplists:proplist()) -> {ok, pid()}.
 start_link(Options) ->
-  proc_lib:start_link(?MODULE, init, [Options]).
+    proc_lib:start_link(?MODULE, init, [Options]).
+
 
 %% Make worker to go into hibernate. Any next call will wake it.
 %% It should be done if you have problems with memory while fetching > 64B binaries from db.
@@ -43,7 +44,7 @@ disconnect(Worker) ->
   gen_server:cast(Worker, halt).
 
 init(Options) ->
-  case mc_worker_logic:connect_to_database(Options) of
+  case install_mc_worker_info_and_connect(Options) of
     {ok, Socket} ->
       ConnState = form_state(Options),
       try_register(Options),
@@ -68,6 +69,50 @@ init(Options) ->
       proc_lib:init_ack(Error),
       ignore
   end.
+
+
+install_mc_worker_info_and_connect(Conf) ->
+    try
+        {ok, InitSocket} = mc_worker_logic:connect_to_database(Conf),
+        NetModule = get_set_opts_module(Conf),
+        Database = mc_utils:get_value(database, Conf, <<"admin">>),
+        %% We install info (protocol type) about the worker in an ETS table outside
+        %% the process so we can construct the right kind of messages to send to
+        %% the process
+        ProtocolType =
+        case application:get_env(mongodb, use_legacy_protocol, auto) of
+            true -> legacy;
+            false -> op_msg; %% modern protocol based on the op_msg package
+            auto ->
+                %% Automatically detect which protocol to use. We send a
+                %% command using the old protocol. If we get back error code
+                %% 352* (UnsupportedOpQueryCommand), we are in a version that
+                %% don't support the legacy protocol so we use the op_msg based
+                %% protocol instead.
+                %% * https://github.com/mongodb/mongo/blob/master/src/mongo/base/error_codes.yml
+                Command = bson:document([{<<"notExistingCommandXyzErlang">>, <<"void">>}]),
+                Request = #'query'{
+                             collection = <<"$cmd">>,
+                             selector = Command,
+                             batchsize = -1
+                            },
+                Response = mc_connection_man:request_raw_no_parse(InitSocket, Database, Request, NetModule),
+                case Response of
+                    [{_, #reply{documents = [#{<<"code">> := 352, <<"ok">> := 0.0}|_]}}|_] ->
+                        op_msg;
+                    _ErrorResponse ->
+                        legacy
+                end
+        end,
+        mc_worker_pid_info:set_info(self(), #{protocol_type => ProtocolType}),
+        %% We have to create a new connection because the previous one does not
+        %% accespt new commands after it got a bad command
+        NetModule:close(InitSocket),
+        mc_worker_logic:connect_to_database(Conf)
+    catch
+        What:Reason:_ ->
+            {error, {What, Reason}}
+    end.
 
 handle_call(NewState, _, State = #state{conn_state = OldState}) when is_record(NewState, conn_state) ->  % update state, return old
   {reply, {ok, OldState}, State#state{conn_state = NewState}};
@@ -126,6 +171,8 @@ terminate(_, State = #state{net_module = NetModule}) ->
 %% @hidden
 code_change(_Old, State, _Extra) ->
   {ok, State}.
+
+
 
 process_op_msg_request(Request, From, State) ->
     #state{socket = Socket,
